@@ -1,0 +1,547 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-4">Gerenciamento de Usuários</h2>
+
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">
+            <i class="fas fa-plus-circle me-2"></i>Adicionar Novo Usuário
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('adicionar_usuario') }}">
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label required">Username</label>
+                    <input type="text" class="form-control" name="username" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label required">Senha</label>
+                    <div class="input-group">
+                        <input type="password" class="form-control" id="passwordInput" name="password" required>
+                        <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('passwordInput')">
+                            <i class="fas fa-eye" id="passwordInputIcon"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label required">Nome Completo</label>
+                    <input type="text" class="form-control" name="nome" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" name="email">
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-3">
+                    <label class="form-label">Empresa</label>
+                    <input type="text" class="form-control" name="empresa">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Perfil</label>
+                    <select class="form-select" name="perfil" id="perfilSelect" onchange="mostrarInfoPerfil(this)">
+                        <option value="ura">URA</option>
+                        <option value="email">Email</option>
+                        <option value="admin">Admin</option>
+                        {% if session.usuario_logado.perfil == 'super_admin' %}
+                        <option value="super_admin">Super Admin</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Limite de Usuários</label>
+                    <input type="number" class="form-control" name="limite_usuarios" value="5" min="1">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-user-plus me-1"></i>Criar Usuário
+                    </button>
+                </div>
+            </div>
+            <!-- Área para informações do perfil -->
+            <div id="infoPerfil" class="alert alert-info mt-2" style="display: none;">
+                <i class="fas fa-info-circle me-2"></i>
+                <span id="infoPerfilText">Selecione um perfil para ver as informações</span>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-users me-2"></i>Lista de Usuários
+        </h5>
+        <span class="badge bg-light text-dark">{{ usuarios|length }} usuários</span>
+    </div>
+    <div class="card-body">
+        {% if usuarios %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Nome</th>
+                        <th>Email</th>
+                        <th>Empresa</th>
+                        <th>Perfil</th>
+                        <th>Status</th>
+                        <th>Último Login</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for usuario in usuarios %}
+                    <tr>
+                        <td>{{ usuario.id }}</td>
+                        <td>
+                            <strong>{{ usuario.username }}</strong>
+                            {% if usuario.id == session.usuario_logado.id %}
+                            <span class="badge bg-info ms-1">Você</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ usuario.nome }}</td>
+                        <td>{{ usuario.email or 'N/A' }}</td>
+                        <td>{{ usuario.empresa or 'N/A' }}</td>
+                        <td>
+                            {% if usuario.perfil %}
+                                <span class="badge 
+                                    {% if usuario.perfil == 'super_admin' %}bg-danger
+                                    {% elif usuario.perfil == 'admin' %}bg-warning
+                                    {% elif usuario.perfil == 'email' %}bg-success
+                                    {% elif usuario.perfil == 'ura' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ usuario.perfil|upper }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if usuario.ativo %}
+                            <span class="badge bg-success">Ativo</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if usuario.data_ultimo_login %}
+                            {{ usuario.data_ultimo_login|datetimeformat('%d/%m/%Y %H:%M') }}
+                            {% else %}
+                            <span class="text-muted">Nunca</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#modalEditarUsuario"
+                                    onclick="carregarUsuario({{ usuario.id }})">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
+                            {% if usuario.id != session.usuario_logado.id %}
+                            <a href="/admin/excluir_usuario/{{ usuario.id }}" 
+                               class="btn btn-sm btn-outline-danger"
+                               onclick="return confirm('Tem certeza que deseja excluir o usuário {{ usuario.username }}?')">
+                                <i class="fas fa-trash"></i> Excluir
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+            <p class="text-muted">Nenhum usuário cadastrado.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal para editar usuário -->
+<div class="modal fade" id="modalEditarUsuario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Editar Usuário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formEditarUsuario" method="POST" action="">
+                <div class="modal-body">
+                    <input type="hidden" id="editarUsuarioId" name="usuario_id">
+                    
+                    <!-- Campo username (somente leitura) -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" id="editarUsername" readonly style="background-color: #f8f9fa;">
+                            <small class="text-muted">Username não pode ser alterado</small>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label required">Nome Completo</label>
+                            <input type="text" class="form-control" id="editarNome" name="nome" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="editarEmail" name="email">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Empresa</label>
+                            <input type="text" class="form-control" id="editarEmpresa" name="empresa">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Perfil</label>
+                            <select class="form-select" id="editarPerfil" name="perfil" onchange="mostrarInfoPerfilModal(this)">
+                                <option value="ura">URA</option>
+                                <option value="email">Email</option>
+                                <option value="admin">Admin</option>
+                                {% if session.usuario_logado.perfil == 'super_admin' %}
+                                <option value="super_admin">Super Admin</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Limite de Usuários</label>
+                            <input type="number" class="form-control" id="editarLimite" name="limite_usuarios" min="1">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Nova Senha</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="novaSenhaInput" name="nova_senha" 
+                                       placeholder="Deixe em branco para manter">
+                                <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('novaSenhaInput')">
+                                    <i class="fas fa-eye" id="novaSenhaInputIcon"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Mínimo 3 caracteres</small>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" id="editarAtivo" name="ativo">
+                                <label class="form-check-label" for="editarAtivo">
+                                    Usuário Ativo
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Área para informações do perfil no modal -->
+                    <div id="infoPerfilModal" class="alert alert-info mt-2" style="display: none;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span id="infoPerfilModalText">Selecione um perfil para ver as informações</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
+<script>
+// Função para mostrar informações do perfil no formulário principal
+function mostrarInfoPerfil(selectElement) {
+    const perfil = selectElement.value;
+    let info = '';
+    
+    switch(perfil) {
+        case 'ura':
+            info = 'Sistema otimizado para URA (Unidade de Resposta Audível) - usa filas simples sem validação de email';
+            break;
+        case 'email':
+            info = 'Sistema completo para gestão de emails - usa filas de email com validação de formato';
+            break;
+        case 'admin':
+            info = 'Acesso administrativo ao sistema - pode gerenciar conteúdos mas não usuários';
+            break;
+        case 'super_admin':
+            info = 'Acesso total ao sistema - pode gerenciar todos os usuários e configurações';
+            break;
+        default:
+            info = 'Selecione um perfil para ver as informações';
+    }
+    
+    const infoElement = document.getElementById('infoPerfil');
+    const infoText = document.getElementById('infoPerfilText');
+    
+    infoText.textContent = info;
+    infoElement.style.display = 'block';
+}
+
+// Função para mostrar informações do perfil no modal
+function mostrarInfoPerfilModal(selectElement) {
+    const perfil = selectElement.value;
+    let info = '';
+    
+    switch(perfil) {
+        case 'ura':
+            info = 'Sistema otimizado para URA (Unidade de Resposta Audível) - usa filas simples sem validação de email';
+            break;
+        case 'email':
+            info = 'Sistema completo para gestão de emails - usa filas de email com validação de formato';
+            break;
+        case 'admin':
+            info = 'Acesso administrativo ao sistema - pode gerenciar conteúdos mas não usuários';
+            break;
+        case 'super_admin':
+            info = 'Acesso total ao sistema - pode gerenciar todos os usuários e configurações';
+            break;
+        default:
+            info = 'Selecione um perfil para ver as informações';
+    }
+    
+    const infoElement = document.getElementById('infoPerfilModal');
+    const infoText = document.getElementById('infoPerfilModalText');
+    
+    infoText.textContent = info;
+    infoElement.style.display = 'block';
+}
+
+function carregarUsuario(usuarioId) {
+    console.log('Carregando usuário ID:', usuarioId);
+    
+    // Mostrar loading no botão
+    const submitBtn = document.querySelector('#formEditarUsuario button[type="submit"]');
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Carregando...';
+    submitBtn.disabled = true;
+    
+    // Buscar dados do usuário via API
+    fetch(`/admin/buscar_usuario/${usuarioId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao buscar usuário');
+            }
+            return response.json();
+        })
+        .then(usuario => {
+            console.log('Dados do usuário recebidos:', usuario);
+            
+            if (usuario.error) {
+                alert('Erro: ' + usuario.error);
+                return;
+            }
+            
+            // Preencher formulário com os dados do usuário
+            document.getElementById('editarUsuarioId').value = usuario.id;
+            document.getElementById('editarUsername').value = usuario.username || '';
+            document.getElementById('editarNome').value = usuario.nome || '';
+            document.getElementById('editarEmail').value = usuario.email || '';
+            document.getElementById('editarEmpresa').value = usuario.empresa || '';
+            document.getElementById('editarPerfil').value = usuario.perfil || 'ura';
+            document.getElementById('editarLimite').value = usuario.limite_usuarios || 5;
+            document.getElementById('editarAtivo').checked = usuario.ativo;
+            
+            // Mostrar informações do perfil atual
+            mostrarInfoPerfilModal(document.getElementById('editarPerfil'));
+            
+            // Atualizar action do formulário
+            const form = document.getElementById('formEditarUsuario');
+            form.action = `/admin/editar_usuario/${usuarioId}`;
+            
+            // Restaurar botão
+            submitBtn.innerHTML = '<i class="fas fa-save me-1"></i>Salvar Alterações';
+            submitBtn.disabled = false;
+            
+            console.log('Formulário preenchido com sucesso');
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao carregar dados do usuário: ' + error.message);
+            
+            // Restaurar botão mesmo em caso de erro
+            submitBtn.innerHTML = '<i class="fas fa-save me-1"></i>Salvar Alterações';
+            submitBtn.disabled = false;
+        });
+}
+
+// Função para mostrar/ocultar senha
+function togglePasswordVisibility(inputId) {
+    const passwordInput = document.getElementById(inputId);
+    const icon = document.getElementById(inputId + 'Icon');
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+}
+
+// Configurar evento de submit do formulário para feedback
+document.getElementById('formEditarUsuario').addEventListener('submit', function(e) {
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
+    submitBtn.disabled = true;
+});
+
+// Resetar formulário quando o modal for fechado
+document.getElementById('modalEditarUsuario').addEventListener('hidden.bs.modal', function () {
+    const form = document.getElementById('formEditarUsuario');
+    form.reset();
+    
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.innerHTML = '<i class="fas fa-save me-1"></i>Salvar Alterações';
+    submitBtn.disabled = false;
+    
+    // Resetar campos de senha para tipo password
+    const senhaInputs = form.querySelectorAll('input[type="text"][id*="Senha"]');
+    senhaInputs.forEach(input => {
+        input.type = 'password';
+    });
+    
+    // Resetar ícones dos olhos
+    const icons = form.querySelectorAll('i[id*="Icon"]');
+    icons.forEach(icon => {
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    });
+    
+    // Ocultar informações do perfil
+    document.getElementById('infoPerfilModal').style.display = 'none';
+});
+
+// Inicializar informações do perfil ao carregar a página
+document.addEventListener('DOMContentLoaded', function() {
+    // Mostrar informações do perfil padrão no formulário principal
+    const perfilSelect = document.getElementById('perfilSelect');
+    if (perfilSelect) {
+        mostrarInfoPerfil(perfilSelect);
+    }
+    
+    // Adicionar tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+// Debug: Verificar dados dos usuários no console
+console.log('Dados dos usuários carregados:', {{ usuarios|tojson }});
+</script>
+
+<style>
+.form-label.required::after {
+    content: " *";
+    color: red;
+}
+
+.badge.bg-primary {
+    background-color: #00a335 !important;
+}
+
+.btn-primary {
+    background-color: #00a335;
+    border-color: #00a335;
+}
+
+.btn-primary:hover {
+    background-color: #00863F;
+    border-color: #00863F;
+}
+
+.card-header.bg-primary {
+    background-color: #00a335 !important;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.input-group .btn-outline-secondary {
+    border-color: #ced4da;
+}
+
+.input-group .btn-outline-secondary:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+/* Badges coloridas para os perfis */
+.badge.bg-info {
+    background-color: #17a2b8 !important;
+}
+
+.badge.bg-success {
+    background-color: #28a745 !important;
+}
+
+.badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+}
+
+.badge.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+/* Estilo para as informações do perfil */
+.alert-info {
+    background-color: rgba(23, 162, 184, 0.1);
+    border-color: #17a2b8;
+    color: #0c5460;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+}
+
+/* Destaque visual para a linha do usuário atual */
+tr:hover {
+    background-color: rgba(0, 163, 53, 0.05) !important;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-sm {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.8rem;
+    }
+    
+    .badge {
+        font-size: 0.75rem;
+    }
+}
+
+/* Melhorar visualização da tabela */
+.table th {
+    background-color: #00a335;
+    color: white;
+    font-weight: 600;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 163, 53, 0.02);
+}
+
+/* Destaque para o usuário atual */
+.badge.bg-info {
+    background-color: #6f42c1 !important;
+}
+</style>
+{% endblock %}

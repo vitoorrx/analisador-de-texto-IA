@@ -1,0 +1,941 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-4">Dashboard de Análise</h2>
+
+<!-- Seletor de Usuário para Super Admin no Dashboard -->
+{% if usuario.perfil == 'super_admin' %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center" style="background-color: #00a335; color: white">
+                <h5 class="mb-0"><i class="fas fa-users me-2"></i>Filtro de Visualização</h5>
+                <span class="badge bg-light text-dark">
+                    <i class="fas fa-shield-alt me-1"></i>Super Admin
+                </span>
+            </div>
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('index') }}" class="row g-3 align-items-end">
+                    <div class="col-md-8">
+                        <label for="usuario_filtro" class="form-label fw-bold">Selecionar Usuário para Visualização:</label>
+                        <select class="form-select" id="usuario_filtro" name="usuario_id">
+                            <option value="">-- Visualizar Todos os Usuários --</option>
+                            {% for user in todos_usuarios %}
+                            <option value="{{ user.id }}" 
+                                    {% if usuario_filtro == user.id %}selected{% endif %}>
+                                {{ user.nome }} ({{ user.empresa }}) - {{ user.username }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            {% if usuario_filtro %}
+                                Visualizando dados específicos do usuário selecionado
+                            {% else %}
+                                Visualizando dados consolidados de todos os usuários
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-filter me-1"></i> Aplicar Filtro
+                        </button>
+                        {% if usuario_filtro %}
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary w-100 mt-2">
+                            <i class="fas fa-times me-1"></i> Limpar Filtro
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+                
+                {% if usuario_filtro %}
+                {% set usuario_selecionado = todos_usuarios | selectattr("id", "equalto", usuario_filtro) | first %}
+                {% if usuario_selecionado %}
+                <div class="mt-3 p-3 alert alert-info">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-user-circle me-3 fs-4"></i>
+                        <div>
+                            <h6 class="mb-1">Visualizando dados do usuário:</h6>
+                            <strong>{{ usuario_selecionado.nome }}</strong> 
+                            <span class="text-muted">({{ usuario_selecionado.empresa }} - {{ usuario_selecionado.username }})</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="mt-3 p-3 alert alert-success">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-users me-3 fs-4"></i>
+                        <div>
+                            <h6 class="mb-1">Visualização Consolidada</h6>
+                            <span class="text-muted">Dados de todos os usuários do sistema</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Métricas -->
+<div class="row mb-4">
+    <div class="col-md-2">
+        <div class="card metric-card text-center">
+            <div class="card-body">
+                <div class="metric-icon mb-2">
+                    <i class="fas fa-envelope fs-2" style="color: #00a335"></i>
+                </div>
+                <h3 class="card-text metric-value">{{ metricas.filas_email_identificadas }}</h3>
+                <p class="card-text metric-label">
+                    {% if usuario.perfil == 'email' %}
+                    Filas de Email
+                    {% else %}
+                    Filas
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card metric-card text-center">
+            <div class="card-body">
+                <div class="metric-icon mb-2">
+                    <i class="fas fa-check-circle fs-2" style="color: #00a335"></i>
+                </div>
+                <h3 class="card-text metric-value">{{ metricas.acuracia_geral }}%</h3>
+                <p class="card-text metric-label">Acurácia Geral</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card metric-card text-center">
+            <div class="card-body">
+                <div class="metric-icon mb-2">
+                    <i class="fas fa-box fs-2" style="color: #00a335"></i>
+                </div>
+                <h3 class="card-text metric-value">{{ metricas.produtos_identificados }}</h3>
+                <p class="card-text metric-label">Produtos Identificados</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card metric-card text-center">
+            <div class="card-body">
+                <div class="metric-icon mb-2">
+                    <i class="fas fa-cogs fs-2" style="color: #00a335"></i>
+                </div>
+                <h3 class="card-text metric-value">{{ metricas.correcoes_manuais }}</h3>
+                <p class="card-text metric-label">Correções Manuais</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card metric-card text-center">
+            <div class="card-body">
+                <div class="metric-icon mb-2">
+                    <i class="fas fa-envelope fs-2" style="color: #00a335"></i>
+                </div>
+                <h3 class="card-text metric-value">{{ metricas.filas_email_identificadas }}</h3>
+                <p class="card-text metric-label">Filas de Email</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card metric-card text-center">
+            <div class="card-body">
+                <div class="metric-icon mb-2">
+                    <i class="fas fa-question-circle fs-2 text-warning"></i>
+                </div>
+                <h3 class="card-text metric-value">{{ metricas.nao_identificados }}</h3>
+                <p class="card-text metric-label">Não Identificados</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Área de Análise -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center" style="background-color: #00a335; color: white">
+                <h5 class="mb-0"><i class="fas fa-search me-2"></i>Analisar Texto</h5>
+                <span class="badge bg-light text-dark">
+                    <i class="fas fa-robot me-1"></i>IA
+                </span>
+            </div>
+            <div class="card-body">
+                <!-- Seletor de Usuário para Super Admin na Análise -->
+                {% if usuario.perfil == 'super_admin' %}
+                <div class="mb-4 p-3 border rounded bg-light">
+                    <label for="usuarioAnalise" class="form-label fw-bold">Usar Dicionário de:</label>
+                    <select class="form-select" id="usuarioAnalise">
+                        <option value="">-- Meu Próprio Dicionário --</option>
+                        {% for user in todos_usuarios %}
+                        <option value="{{ user.id }}">{{ user.nome }} ({{ user.empresa }})</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Esta análise usará o dicionário do usuário selecionado
+                    </div>
+                </div>
+                {% endif %}
+
+                <form id="analiseForm">
+                    <div class="mb-3">
+                        <label for="textoAnalise" class="form-label fw-bold">Cole o texto do email para análise:</label>
+                        <textarea class="form-control" id="textoAnalise" rows="5" 
+                                  placeholder="Cole o conteúdo do texto aqui para análise automática..." 
+                                  style="font-family: 'Courier New', monospace; font-size: 0.9rem;"></textarea>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="fas fa-lightbulb me-1"></i>
+                            O sistema analisará automaticamente produtos, categorias e filas
+                        </small>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-search me-2"></i> Analisar Texto
+                        </button>
+                    </div>
+                </form>
+                
+                <div id="resultadoAnalise" class="mt-4" style="display: none;">
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Resultado da Análise</h6>
+                            <span class="badge bg-light text-dark" id="statusBadge"></span>
+                        </div>
+                        <div class="card-body">
+                            <div id="resultadoConteudo"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos -->
+<div class="row mb-4">
+    <div class="col-md-12 mb-4">
+        <div class="card chart-card">
+            <div class="card-header d-flex justify-content-between align-items-center" style="background-color: #00a335; color: white">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Distribuição de Análises</h5>
+                <span class="badge bg-light text-dark">
+                    <i class="fas fa-chart-bar me-1"></i>Visão Geral
+                </span>
+            </div>
+            <div class="card-body text-center">
+                {% if grafico_status %}
+                <img src="data:image/png;base64,{{ grafico_status }}" class="img-fluid large-chart"
+                    alt="Distribuição de Análises">
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-chart-bar fs-1 text-muted mb-3"></i>
+                    <p class="text-muted">Nenhum dado disponível para gerar gráfico.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card chart-card">
+            <div class="card-header d-flex justify-content-between align-items-center" style="background-color: #00a335; color: white">
+                <h5 class="mb-0"><i class="fas fa-star me-2"></i>Top 10 Produtos</h5>
+                <span class="badge bg-light text-dark">
+                    <i class="fas fa-trophy me-1"></i>Ranking
+                </span>
+            </div>
+            <div class="card-body text-center">
+                {% if grafico_produtos %}
+                <img src="data:image/png;base64,{{ grafico_produtos }}" class="img-fluid medium-chart"
+                    alt="Top 10 Produtos">
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-box-open fs-1 text-muted mb-3"></i>
+                    <p class="text-muted">Nenhum produto identificado ainda.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card chart-card">
+            <div class="card-header d-flex justify-content-between align-items-center" style="background-color: #00a335; color: white">
+                <h5 class="mb-0"><i class="fas fa-tags me-2"></i>Top 10 Categorias</h5>
+                <span class="badge bg-light text-dark">
+                    <i class="fas fa-list me-1"></i>Categorias
+                </span>
+            </div>
+            <div class="card-body text-center">
+                {% if grafico_categorias %}
+                <img src="data:image/png;base64,{{ grafico_categorias }}" class="img-fluid medium-chart"
+                    alt="Top 10 Categorias">
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-tag fs-1 text-muted mb-3"></i>
+                    <p class="text-muted">Nenhuma categoria identificada ainda.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-12 mb-4">
+        <div class="card chart-card">
+            <div class="card-header d-flex justify-content-between align-items-center" style="background-color: #00a335; color: white">
+                <h5 class="mb-0">
+                    <i class="fas fa-envelope me-2"></i>
+                    {% if usuario.perfil == 'email' %}
+                    Top 10 Filas de Email
+                    {% else %}
+                    Top 10 Filas
+                    {% endif %}
+                </h5>
+                <span class="badge bg-light text-dark">
+                    <i class="fas fa-inbox me-1"></i>Filas
+                </span>
+            </div>
+            <div class="card-body text-center">
+                {% if grafico_filas_email %}
+                <img src="data:image/png;base64,{{ grafico_filas_email }}" class="img-fluid large-chart"
+                    alt="Top 10 Filas de Email">
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-envelope-open fs-1 text-muted mb-3"></i>
+                    <p class="text-muted">Nenhuma fila de email identificada ainda.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Logs recentes -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center"
+        style="background-color: #00a335; color: white">
+        <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Logs do Sistema</h5>
+        <span class="badge" style="background-color: #87c984">
+            <i class="fas fa-history me-1"></i>Últimas 100 entradas
+        </span>
+    </div>
+    <div class="card-body log-container" style="max-height: 400px; overflow-y: auto;">
+        {% if logs %}
+        {% for log in logs %}
+        <div class="log-entry border-bottom pb-2 mb-2">
+            <small class="text-muted">
+                <i class="fas fa-circle me-1" style="font-size: 0.5rem; vertical-align: middle;"></i>
+                {{ log }}
+            </small>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-clipboard fs-1 text-muted mb-3"></i>
+            <p class="text-muted">Nenhum log disponível no momento.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.getElementById('analiseForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const texto = document.getElementById('textoAnalise').value.trim();
+    if (!texto) {
+        alert('Por favor, insira um texto para análise.');
+        return;
+    }
+    
+    // VERIFICAR SE É SUPER ADMIN E TEM USUÁRIO SELECIONADO
+    const usuarioAnaliseSelect = document.getElementById('usuarioAnalise');
+    let usuarioId = null;
+    
+    if (usuarioAnaliseSelect) {
+        usuarioId = usuarioAnaliseSelect.value;
+    }
+    
+    // Mostrar loading
+    const resultadoDiv = document.getElementById('resultadoAnalise');
+    const conteudoDiv = document.getElementById('resultadoConteudo');
+    const statusBadge = document.getElementById('statusBadge');
+    
+    resultadoDiv.style.display = 'block';
+    conteudoDiv.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Processando...</span>
+            </div>
+            <h6 class="text-primary">Analisando texto com IA...</h6>
+            <p class="text-muted">Isso pode levar alguns segundos</p>
+        </div>
+    `;
+    statusBadge.innerHTML = '<i class="fas fa-sync-alt fa-spin me-1"></i>Processando';
+    statusBadge.className = 'badge bg-warning';
+    
+    const formData = new FormData();
+    formData.append('texto', texto);
+    
+    // ADICIONAR USUÁRIO SELECIONADO SE EXISTIR
+    if (usuarioId) {
+        formData.append('usuario_id', usuarioId);
+    }
+    
+    fetch('/analisar', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Erro HTTP: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.error) {
+            conteudoDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Erro na Análise:</strong> ${data.error}
+                    ${data.detalhes ? `<br><small>${data.detalhes}</small>` : ''}
+                </div>
+            `;
+            statusBadge.innerHTML = '<i class="fas fa-times me-1"></i>Erro';
+            statusBadge.className = 'badge bg-danger';
+        } else {
+            let confiancaClass = 'success';
+            if (data.confianca < 50) confiancaClass = 'danger';
+            else if (data.confianca < 70) confiancaClass = 'warning';
+            
+            let produtosDetectadosHtml = '';
+            
+            // CORREÇÃO: Usar produtos_encontrados em vez de produtos_detectados
+            const produtosEncontrados = data.produtos_encontrados || data.produtos_detectados || [];
+            
+            if (produtosEncontrados.length > 0) {
+                produtosDetectadosHtml = `
+                    <div class="mt-4">
+                        <h6 class="border-bottom pb-2">
+                            <i class="fas fa-list-ul me-2"></i>Produtos Detectados (${produtosEncontrados.length})
+                        </h6>
+                        <div class="list-group">
+                `;
+                
+                produtosEncontrados.forEach((produto, index) => {
+                    // CORREÇÃO: Tratar confiança como opcional e usar valores padrão
+                    const confiancaProduto = produto.confianca || 0;
+                    let produtoConfiancaClass = 'success';
+                    if (confiancaProduto < 0.6) produtoConfiancaClass = 'warning';
+                    if (confiancaProduto < 0.4) produtoConfiancaClass = 'danger';
+                    
+                    // CORREÇÃO: Usar categoria e tipo com fallbacks
+                    const categoriaProduto = produto.categoria || 'Não categorizado';
+                    const tipoProduto = produto.tipo || 'produto';
+                    const nomeProduto = produto.produto || 'Produto não identificado';
+                    const emailFilaProduto = produto.email_fila || '';
+                    
+                    produtosDetectadosHtml += `
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div class="flex-grow-1">
+                                <strong class="d-block">${nomeProduto}</strong>
+                                <small class="text-muted">
+                                    <i class="fas fa-tag me-1"></i>${categoriaProduto}
+                                    ${tipoProduto && tipoProduto !== 'produto' ? `<i class="fas fa-info-circle ms-2 me-1"></i>${tipoProduto}` : ''}
+                                    ${emailFilaProduto ? `<i class="fas fa-envelope ms-2 me-1"></i>${emailFilaProduto}` : ''}
+                                </small>
+                            </div>
+                            ${confiancaProduto > 0 && !isNaN(confiancaProduto) ? `
+                            <span class="badge bg-${produtoConfiancaClass} fs-6">
+                                ${Math.round(confiancaProduto * 100)}%
+                            </span>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+                
+                produtosDetectadosHtml += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Determinar cor do status
+            let statusClass = 'bg-secondary';
+            let statusIcon = 'fas fa-info-circle';
+            let statusText = data.status || 'processado';
+            
+            if (statusText.includes('sucesso') || statusText.includes('identificado')) {
+                statusClass = 'bg-success';
+                statusIcon = 'fas fa-check-circle';
+            } else if (statusText.includes('contexto')) {
+                statusClass = 'bg-info';
+                statusIcon = 'fas fa-project-diagram';
+            } else if (statusText.includes('nao_identificado')) {
+                statusClass = 'bg-warning';
+                statusIcon = 'fas fa-exclamation-triangle';
+            } else if (statusText.includes('erro')) {
+                statusClass = 'bg-danger';
+                statusIcon = 'fas fa-times-circle';
+            }
+            
+            // Mostrar sugestão de resposta se disponível
+            let sugestaoRespostaHtml = '';
+            if (data.sugestao_resposta) {
+                sugestaoRespostaHtml = `
+                    <div class="mt-4">
+                        <h6 class="border-bottom pb-2">
+                            <i class="fas fa-comment-dots me-2"></i>Sugestão de Resposta (IA)
+                        </h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <p class="card-text" style="white-space: pre-wrap; font-size: 0.9rem;">${data.sugestao_resposta}</p>
+                                <button class="btn btn-sm btn-outline-primary mt-2" onclick="copiarSugestao(this)">
+                                    <i class="fas fa-copy me-1"></i>Copiar Sugestão
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Mostrar informações da IA se disponível
+            let iaInfoHtml = '';
+            if (data.ia_utilizada !== undefined) {
+                iaInfoHtml = `
+                    <p class="mb-2">
+                        <strong>IA Utilizada:</strong> 
+                        <span class="badge ${data.ia_utilizada ? 'bg-success' : 'bg-secondary'}">
+                            ${data.ia_utilizada ? 'Sim' : 'Não'}
+                        </span>
+                    </p>
+                `;
+            }
+
+            conteudoDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-check-circle me-3 fs-4"></i>
+                        <div>
+                            <h6 class="mb-1">Análise concluída com sucesso!</h6>
+                            <small class="mb-0">Texto processado e categorizado automaticamente</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title border-bottom pb-2">
+                                    <i class="fas fa-info-circle me-2"></i>Identificações Principais
+                                </h6>
+                                <p class="mb-2">
+                                    <strong>Produto:</strong> 
+                                    ${data.produto ? `<span class="badge bg-success">${data.produto}</span>` : '<span class="text-muted">Nenhum produto específico</span>'}
+                                </p>
+                                <p class="mb-2">
+                                    <strong>Categoria:</strong> 
+                                    ${data.categoria ? `<span class="badge bg-info">${data.categoria}</span>` : '<span class="text-muted">Nenhuma categoria</span>'}
+                                </p>
+                                <p class="mb-2">
+                                    <strong>Email/Fila:</strong> 
+                                    ${data.email_fila ? `<span class="badge bg-primary">${data.email_fila}</span>` : '<span class="text-muted">Nenhuma fila</span>'}
+                                </p>
+                                ${iaInfoHtml}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title border-bottom pb-2">
+                                    <i class="fas fa-chart-line me-2"></i>Métricas da Análise
+                                </h6>
+                                <p class="mb-2">
+                                    <strong>Confiança Geral:</strong> 
+                                    <span class="badge bg-${confiancaClass} fs-6">${data.confianca}%</span>
+                                </p>
+                                <p class="mb-2">
+                                    <strong>Status:</strong> 
+                                    <span class="badge ${statusClass}">
+                                        <i class="${statusIcon} me-1"></i>${statusText}
+                                    </span>
+                                </p>
+                                <p class="mb-2">
+                                    <strong>Produtos Encontrados:</strong> 
+                                    <span class="badge bg-secondary">${produtosEncontrados.length}</span>
+                                </p>
+                                <p class="mb-0"><strong>Texto Analisado:</strong></p>
+                                <small class="text-muted d-block mt-1" style="font-style: italic; font-size: 0.8rem;">"${data.texto_analisado}"</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ${produtosDetectadosHtml}
+                ${sugestaoRespostaHtml}
+            `;
+            
+            statusBadge.innerHTML = '<i class="fas fa-check me-1"></i>Concluído';
+            statusBadge.className = 'badge bg-success';
+            
+            // Scroll para o resultado após um pequeno delay
+            setTimeout(scrollToResultado, 100);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        conteudoDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Erro de Conexão:</strong> Não foi possível processar a análise. Tente novamente.
+                <br><small>Detalhes: ${error.message}</small>
+            </div>
+        `;
+        statusBadge.innerHTML = '<i class="fas fa-times me-1"></i>Erro';
+        statusBadge.className = 'badge bg-danger';
+    });
+});
+
+// Função para copiar sugestão de resposta
+function copiarSugestao(button) {
+    const sugestaoText = button.closest('.card-body').querySelector('p').textContent;
+    
+    navigator.clipboard.writeText(sugestaoText).then(() => {
+        // Feedback visual
+        const originalHtml = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check me-1"></i>Copiado!';
+        button.classList.remove('btn-outline-primary');
+        button.classList.add('btn-success');
+        
+        setTimeout(() => {
+            button.innerHTML = originalHtml;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-primary');
+        }, 2000);
+    }).catch(err => {
+        console.error('Erro ao copiar:', err);
+        alert('Erro ao copiar texto. Tente novamente.');
+    });
+}
+
+// Função para rolar automaticamente para o resultado
+function scrollToResultado() {
+    const resultadoDiv = document.getElementById('resultadoAnalise');
+    if (resultadoDiv) {
+        resultadoDiv.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest'
+        });
+    }
+}
+
+// Adicionar funcionalidade de auto-expand para textarea
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('textoAnalise');
+    if (textarea) {
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+        
+        // Trigger inicial para ajustar altura
+        textarea.dispatchEvent(new Event('input'));
+    }
+    
+    // Adicionar funcionalidade de limpar formulário
+    const form = document.getElementById('analiseForm');
+    if (form) {
+        // Criar botão de limpar se não existir
+        if (!document.getElementById('limparTexto')) {
+            const submitButton = form.querySelector('button[type="submit"]');
+            const clearButton = document.createElement('button');
+            clearButton.type = 'button';
+            clearButton.id = 'limparTexto';
+            clearButton.className = 'btn btn-outline-secondary btn-lg ms-2';
+            clearButton.innerHTML = '<i class="fas fa-eraser me-2"></i>Limpar';
+            clearButton.onclick = function() {
+                document.getElementById('textoAnalise').value = '';
+                document.getElementById('resultadoAnalise').style.display = 'none';
+                // Resetar altura do textarea
+                const textarea = document.getElementById('textoAnalise');
+                textarea.style.height = 'auto';
+            };
+            submitButton.parentNode.appendChild(clearButton);
+        }
+    }
+    
+    // Adicionar contador de caracteres
+    const textoAnalise = document.getElementById('textoAnalise');
+    if (textoAnalise) {
+        const charCount = document.createElement('div');
+        charCount.className = 'form-text text-end';
+        charCount.id = 'charCount';
+        charCount.innerHTML = '0 caracteres';
+        textoAnalise.parentNode.appendChild(charCount);
+        
+        textoAnalise.addEventListener('input', function() {
+            const count = this.value.length;
+            charCount.textContent = `${count} caracteres`;
+            charCount.className = `form-text text-end ${count > 1000 ? 'text-warning' : 'text-muted'}`;
+        });
+        
+        // Trigger inicial
+        textoAnalise.dispatchEvent(new Event('input'));
+    }
+});
+
+// Função para exemplo rápido de texto (para testes)
+function inserirTextoExemplo() {
+    const exemplos = [
+        "Preciso de suporte para minha câmera que parou de funcionar após uma chuva forte.",
+    ];
+    
+    const textoArea = document.getElementById('textoAnalise');
+    const exemploAleatorio = exemplos[Math.floor(Math.random() * exemplos.length)];
+    textoArea.value = exemploAleatorio;
+    
+    // Trigger o evento input para ajustar altura e contador
+    const event = new Event('input');
+    textoArea.dispatchEvent(event);
+}
+
+// Adicionar botão de exemplo se não existir
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('analiseForm');
+    if (form && !document.getElementById('btnExemplo')) {
+        const buttonGroup = form.querySelector('.d-flex.justify-content-between');
+        if (buttonGroup) {
+            const exemploButton = document.createElement('button');
+            exemploButton.type = 'button';
+            exemploButton.id = 'btnExemplo';
+            exemploButton.className = 'btn btn-outline-info btn-sm';
+            exemploButton.innerHTML = '<i class="fas fa-magic me-1"></i>Exemplo';
+            exemploButton.onclick = inserirTextoExemplo;
+            buttonGroup.appendChild(exemploButton);
+        }
+    }
+});
+
+// Melhorar a exibição dos logs com auto-scroll
+document.addEventListener('DOMContentLoaded', function() {
+    const logContainer = document.querySelector('.log-container');
+    if (logContainer) {
+        // Manter scroll no final (logs mais recentes)
+        logContainer.scrollTop = logContainer.scrollHeight;
+        
+        // Adicionar animação de fade-in para novos logs
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach(function(node) {
+                        if (node.nodeType === 1) { // Element node
+                            node.style.opacity = '0';
+                            node.style.transition = 'opacity 0.5s ease-in';
+                            setTimeout(() => {
+                                node.style.opacity = '1';
+                            }, 10);
+                        }
+                    });
+                    // Manter scroll no final
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }
+            });
+        });
+        
+        observer.observe(logContainer, {
+            childList: true,
+            subtree: true
+        });
+    }
+});
+
+// Adicionar hotkeys
+document.addEventListener('keydown', function(e) {
+    // Ctrl + Enter para submeter o formulário
+    if (e.ctrlKey && e.key === 'Enter') {
+        const form = document.getElementById('analiseForm');
+        if (form) {
+            form.dispatchEvent(new Event('submit'));
+        }
+    }
+    
+    // Ctrl + L para limpar
+    if (e.ctrlKey && e.key === 'l') {
+        const clearBtn = document.getElementById('limparTexto');
+        if (clearBtn) {
+            clearBtn.click();
+        }
+    }
+    
+    // Ctrl + E para inserir exemplo
+    if (e.ctrlKey && e.key === 'e') {
+        const exemploBtn = document.getElementById('btnExemplo');
+        if (exemploBtn) {
+            exemploBtn.click();
+        }
+    }
+});
+
+// Mostrar hotkeys disponíveis no tooltip
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('textoAnalise');
+    if (textarea) {
+        textarea.title = "Hotkeys: Ctrl+Enter (Analisar), Ctrl+L (Limpar), Ctrl+E (Exemplo)";
+    }
+});
+
+// Função para exportar resultado da análise
+function exportarResultadoAnalise() {
+    const resultadoConteudo = document.getElementById('resultadoConteudo');
+    if (!resultadoConteudo) return;
+    
+    const texto = resultadoConteudo.textContent || resultadoConteudo.innerText;
+    const blob = new Blob([texto], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analise_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Adicionar botão de exportar se não existir
+document.addEventListener('DOMContentLoaded', function() {
+    const resultadoDiv = document.getElementById('resultadoAnalise');
+    if (resultadoDiv && !document.getElementById('btnExportar')) {
+        const cardHeader = resultadoDiv.querySelector('.card-header');
+        if (cardHeader) {
+            const exportButton = document.createElement('button');
+            exportButton.type = 'button';
+            exportButton.id = 'btnExportar';
+            exportButton.className = 'btn btn-outline-light btn-sm ms-2';
+            exportButton.innerHTML = '<i class="fas fa-download me-1"></i>Exportar';
+            exportButton.onclick = exportarResultadoAnalise;
+            cardHeader.appendChild(exportButton);
+        }
+    }
+});
+</script>
+<style>
+    /* Estilos para os gráficos */
+    .large-chart {
+        height: 450px;
+        width: 100%;
+        object-fit: contain;
+    }
+
+    .medium-chart {
+        height: 400px;
+        width: 100%;
+        object-fit: contain;
+    }
+
+    .chart-card {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border: none;
+        border-radius: 8px;
+        overflow: hidden;
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .chart-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .chart-card .card-header {
+        border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .metric-card {
+        transition: transform 0.3s;
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        background-color: #ffffff;
+        border-left: 4px solid #00a335;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 163, 53, 0.2);
+    }
+
+    .metric-icon {
+        opacity: 0.8;
+        transition: opacity 0.3s;
+    }
+
+    .metric-card:hover .metric-icon {
+        opacity: 1;
+    }
+
+    .metric-value {
+        color: #3e5055;
+        font-weight: 700;
+        margin: 0.5rem 0;
+    }
+
+    .metric-label {
+        color: #8b979f;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin: 0;
+    }
+
+    h2, h5 {
+        color: #3e5055;
+    }
+
+    body {
+        background-color: #f8f9fa;
+    }
+
+    .badge {
+        font-weight: 500;
+    }
+    
+    .btn-primary {
+        background-color: #00a335;
+        border-color: #00a335;
+        font-weight: 500;
+    }
+    
+    .btn-primary:hover {
+        background-color: #00863F;
+        border-color: #00863F;
+        transform: translateY(-1px);
+    }
+
+    .log-entry {
+        transition: background-color 0.2s;
+    }
+
+    .log-entry:hover {
+        background-color: #f8f9fa;
+    }
+
+    .card {
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-control:focus {
+        border-color: #00a335;
+        box-shadow: 0 0 0 0.2rem rgba(0, 163, 53, 0.25);
+    }
+
+    .form-select:focus {
+        border-color: #00a335;
+        box-shadow: 0 0 0 0.2rem rgba(0, 163, 53, 0.25);
+    }
+</style>
+{% endblock %}

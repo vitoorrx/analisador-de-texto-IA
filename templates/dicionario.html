@@ -1,0 +1,1343 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-4">Dicionário de Produtos</h2>
+
+<!-- Filtro de Usuário para Super Admin -->
+{% if usuario.perfil == 'super_admin' %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Filtros - Super Admin</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <label for="usuario_filtro" class="form-label">Filtrar por Usuário:</label>
+                <select class="form-select" id="usuario_filtro" onchange="filtrarPorUsuario()">
+                    <option value="">Todos os Usuários</option>
+                    {% for u in usuarios %}
+                        <option value="{{ u.id }}" {% if usuario_filtro == u.id %}selected{% endif %}>
+                            {{ u.nome }} ({{ u.empresa }}) - {{ u.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Status do Filtro:</label>
+                <div>
+                    {% if usuario_filtro %}
+                        {% set usuario_selecionado = usuarios|selectattr("id", "equalto", usuario_filtro)|first %}
+                        <span class="badge bg-info">Visualizando: {{ usuario_selecionado.nome if usuario_selecionado else 'Usuário' }}</span>
+                    {% else %}
+                        <span class="badge bg-success">Visualizando: Todos os Usuários</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- No lugar dos botões de exportar/importar, atualize para: -->
+<div class="d-flex justify-content-between mb-3">
+    <div>
+        <button class="btn btn-primary" onclick="mostrarModalAdicionar()">
+            <i class="fas fa-plus me-1"></i> Adicionar Produto
+        </button>
+        
+        <!-- Botões de Exportar/Importar -->
+        <div class="btn-group ms-2">
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalExportar">
+                <i class="fas fa-download me-1"></i> Exportar
+            </button>
+            <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split" 
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="visually-hidden">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('exportar_template_dicionario') }}">
+                        <i class="fas fa-file-excel me-2"></i> Baixar Template em Branco
+                    </a>
+                </li>
+            </ul>
+        </div>
+        
+        {% if is_super_admin or not is_super_admin %}
+        <button class="btn btn-warning ms-2" data-bs-toggle="modal" data-bs-target="#modalImportar">
+            <i class="fas fa-upload me-1"></i> Importar
+        </button>
+        {% endif %}
+    </div>
+    <div>
+        <span class="badge bg-info">{{ produtos|length }} produtos cadastrados</span>
+    </div>
+</div>
+
+<!-- Modal Exportar -->
+<div class="modal fade" id="modalExportar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Exportar Dicionário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formExportar" method="GET" action="{{ url_for('exportar_dicionario') }}">
+                <div class="modal-body">
+                    <p>Selecione as opções de exportação:</p>
+                    
+                    {% if usuario.perfil == 'super_admin' %}
+                    <div class="mb-3">
+                        <label class="form-label">Exportar para usuário:</label>
+                        <select class="form-select" name="usuario_id">
+                            <option value="">Todos os Usuários</option>
+                            {% for u in usuarios %}
+                                <option value="{{ u.id }}">{{ u.nome }} ({{ u.empresa }}) - {{ u.username }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Deixe em branco para exportar todos os usuários</div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="alert alert-info">
+                        <small>
+                            <i class="fas fa-info-circle me-1"></i>
+                            <strong>Exportar dados existentes:</strong> Use esta opção para exportar produtos já cadastrados.
+                            <br>
+                            <i class="fas fa-file-excel me-1"></i>
+                            <strong>Template em branco:</strong> Use o dropdown ao lado do botão "Exportar" para baixar um template vazio.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-download me-1"></i> Exportar Dados
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Importar -->
+<div class="modal fade" id="modalImportar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Importar Dicionário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('importar_dicionario') }}" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Selecione o arquivo Excel:</label>
+                        <input type="file" class="form-control" name="arquivo" accept=".xlsx,.xls" required>
+                        <div class="form-text">Formatos suportados: .xlsx, .xls</div>
+                    </div>
+                    
+                    {% if usuario.perfil == 'super_admin' %}
+                    <div class="mb-3">
+                        <label class="form-label required">Importar para usuário:</label>
+                        <select class="form-select" name="usuario_destino_id" required>
+                            <option value="">Selecione um usuário</option>
+                            {% for u in usuarios %}
+                                <option value="{{ u.id }}">{{ u.nome }} ({{ u.empresa }}) - {{ u.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Atualize a seção de instruções no modal de importação -->
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle me-1"></i> Instruções Importantes:</h6>
+                        <small>
+                            <ul class="mb-0">
+                                <li>Use arquivos exportados deste sistema como base</li>
+                                <li><strong>Para NOVOS produtos: deixe a coluna ID COMPLETAMENTE EM BRANCO</strong></li>
+                                <li><strong>Para ATUALIZAR produtos: mantenha o ID original</strong></li>
+                                <li><strong>IDs que não existem no banco serão IGNORADOS (não criam novos produtos)</strong></li>
+                                <li><strong>Termo genérico em branco será definido como "não"</strong></li>
+                                <li>Colunas obrigatórias: categoria, produto</li>
+                                <li>Faça backup antes de importar</li>
+                            </ul>
+                        </small>
+                    </div>
+
+                    <!-- Adicione também um exemplo visual -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-lightbulb me-1"></i> Exemplo Correto:</h6>
+                        <small>
+                            <table class="table table-sm table-bordered mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>id</th>
+                                        <th>categoria</th>
+                                        <th>produto</th>
+                                        <th>variacoes</th>
+                                        <th>termo_generico</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>5</strong></td>
+                                        <td>Fila: Suporte</td>
+                                        <td>Produto A</td>
+                                        <td>modelo X, versão 2</td>
+                                        <td>não</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>(EM BRANCO)</strong></td>
+                                        <td>Fila: Vendas</td>
+                                        <td>Novo Produto</td>
+                                        <td>novo modelo</td>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-upload me-1"></i> Importar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        {% if usuario.perfil == 'super_admin' and not usuario_filtro %}
+                        <th>Usuário</th>
+                        <th>Empresa</th>
+                        {% endif %}
+                        <th>ID</th>
+                        <th>Categoria</th>
+                        <th>Produto</th>
+                        <th>Variações</th>
+                        <th>Palavras-chave</th>
+                        <th>Termo Genérico</th>
+                        {% if usuario.perfil == 'email' %}
+                        <th>Email Fila</th>
+                        {% else %}
+                        <th>Fila</th>
+                        {% endif %}
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for produto in produtos %}
+                    <tr>
+                        {% if usuario.perfil == 'super_admin' and not usuario_filtro %}
+                        <td>
+                            {% if produto.usuario_nome %}
+                                {{ produto.usuario_nome }}
+                            {% else %}
+                                <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if produto.usuario_empresa %}
+                                {{ produto.usuario_empresa }}
+                            {% else %}
+                                <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        <td>{{ produto.id }}</td>
+                        <td>{{ produto.categoria }}</td>
+                        <td>{{ produto.produto }}</td>
+                        <td>{{ produto.variacoes }}</td>
+                        <td>{{ produto.palavras_chave }}</td>
+                        <td>{{ produto.termo_generico }}</td>
+                        <td>{{ produto.email_fila }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1"
+                                onclick="editarProduto({{ produto.id }})">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" 
+                                onclick="excluirProduto({{ produto.id }})">
+                                <i class="fas fa-trash"></i> Excluir
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="{% if usuario.perfil == 'super_admin' and not usuario_filtro %}10{% else %}8{% endif %}" class="text-center">
+                            Nenhum produto cadastrado.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer">
+        <small class="text-muted">
+            {% if usuario.perfil == 'super_admin' %}
+                {% if usuario_filtro %}
+                    Visualizando dados do usuário selecionado
+                {% else %}
+                    Visualizando dados de todos os usuários
+                {% endif %}
+            {% else %}
+                Visualizando seus dados
+            {% endif %}
+        </small>
+    </div>
+</div>
+
+<!-- Modal para adicionar produto -->
+<div class="modal fade" id="modalAdicionar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Adicionar Produto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="produtoForm">
+                <input type="hidden" id="produtoId" name="id" value="">
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label required">Categoria</label>
+                            <div class="input-group">
+                                <select class="form-select" id="categoriaSelect" name="categoria" required>
+                                    <option value="">Selecione uma categoria</option>
+                                    <!-- Opções serão preenchidas via JavaScript -->
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button"
+                                    onclick="mostrarModalItem('categoria')">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label required">Produto</label>
+                            <div class="input-group">
+                                <select class="form-select" id="produtoSelect" name="produto" required>
+                                    <option value="">Selecione um produto</option>
+                                    <!-- Opções serão preenchidas via JavaScript -->
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button"
+                                    onclick="mostrarModalItem('produto')">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Variações (separadas por vírgula)</label>
+                        <input type="text" class="form-control" name="variacoes"
+                            placeholder="Ex: modelo A, modelo B, versão 2.0">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Palavras-chave (separadas por vírgula)</label>
+                        <input type="text" class="form-control" name="palavras_chave"
+                            placeholder="Ex: camera, segurança, monitoramento">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Palavras de contexto (separadas por vírgula)</label>
+                        <input type="text" class="form-control" name="palavras_contexto"
+                            placeholder="Ex: instalação, problema, configuração">
+                    </div>
+                    
+                    <!-- Campo diferenciado por perfil -->
+                    {% if usuario.perfil == 'email' %}
+                    <div class="mb-3">
+                        <label class="form-label required">Email da Fila</label>
+                        <div class="input-group">
+                            <select class="form-select" id="emailFilaSelect" name="email_fila" required>
+                                <option value="">Selecione um email</option>
+                                <!-- Opções serão preenchidas via JavaScript -->
+                            </select>
+                            <button class="btn btn-outline-secondary" type="button"
+                                onclick="mostrarModalItem('email_fila')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <label class="form-label">Fila</label>
+                        <div class="input-group">
+                            <select class="form-select" id="filaSelect" name="fila">
+                                <option value="">Selecione uma fila</option>
+                                <!-- Opções serão preenchidas via JavaScript -->
+                            </select>
+                            <button class="btn btn-outline-secondary" type="button"
+                                onclick="mostrarModalItem('fila')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="termo_generico" value="sim"
+                                id="termoGenerico">
+                            <label class="form-check-label" for="termoGenerico">
+                                Termo genérico
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para adicionar novo item (categoria, produto ou email) -->
+<div class="modal fade" id="modalNovoItem" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalNovoItemTitulo">Adicionar Novo Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="novoItemForm">
+                <input type="hidden" id="tipoItem" name="tipo" value="">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label required" id="labelNovoItem">Item</label>
+                        <input type="text" class="form-control" id="valorNovoItem" name="valor" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Adicionar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para editar produto -->
+<div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Produto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editarForm">
+                <div class="modal-body">
+                    <input type="hidden" id="editarId" name="id">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label required">Categoria</label>
+                            <div class="input-group">
+                                <select class="form-select" id="editarCategoria" name="categoria" required>
+                                    <option value="">Selecione uma categoria</option>
+                                    <!-- Opções serão preenchidas via JavaScript -->
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button"
+                                    onclick="mostrarModalItem('categoria')">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label required">Produto</label>
+                            <div class="input-group">
+                                <select class="form-select" id="editarProdutoSelect" name="produto" required>
+                                    <option value="">Selecione um produto</option>
+                                    <!-- Opções serão preenchidas via JavaScript -->
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button"
+                                    onclick="mostrarModalItem('produto')">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Variações (separadas por vírgula)</label>
+                        <input type="text" class="form-control" id="editarVariacoes" name="variacoes">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Palavras-chave (separadas por vírgula)</label>
+                        <input type="text" class="form-control" id="editarPalavrasChave" name="palavras_chave">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Palavras de contexto (separadas por vírgula)</label>
+                        <input type="text" class="form-control" id="editarPalavrasContexto" name="palavras_contexto">
+                    </div>
+                    
+                    <!-- Campo diferenciado por perfil -->
+                    {% if usuario.perfil == 'email' %}
+                    <div class="mb-3">
+                        <label class="form-label required">Email da Fila</label>
+                        <div class="input-group">
+                            <select class="form-select" id="editarEmailFila" name="email_fila" required>
+                                <option value="">Selecione um email</option>
+                                <!-- Opções serão preenchidas via JavaScript -->
+                            </select>
+                            <button class="btn btn-outline-secondary" type="button"
+                                onclick="mostrarModalItem('email_fila')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <label class="form-label">Fila</label>
+                        <div class="input-group">
+                            <select class="form-select" id="editarFila" name="fila">
+                                <option value="">Selecione uma fila</option>
+                                <!-- Opções serão preenchidas via JavaScript -->
+                            </select>
+                            <button class="btn btn-outline-secondary" type="button"
+                                onclick="mostrarModalItem('fila')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="termo_generico" value="sim"
+                                id="editarTermoGenerico">
+                            <label class="form-check-label" for="editarTermoGenerico">
+                                Termo genérico
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Variável global para controlar se estamos editando ou adicionando
+    let modoEdicao = false;
+    let categorias = new Set();
+    let produtosSet = new Set();
+    let emailsFila = new Set();
+    let filas = new Set();
+
+    // Carregar dados existentes ao iniciar
+    document.addEventListener('DOMContentLoaded', function () {
+        carregarDadosExistentes();
+        
+        // Configurar formulários com prevenção padrão
+        configurarFormularios();
+    });
+
+    function configurarFormularios() {
+        // Configurar formulário de adição para usar AJAX
+        const produtoForm = document.getElementById('produtoForm');
+        if (produtoForm) {
+            produtoForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                enviarFormularioProduto(this);
+            });
+        }
+
+        // Configurar formulário de edição para usar AJAX
+        const editarForm = document.getElementById('editarForm');
+        if (editarForm) {
+            editarForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                enviarFormularioEdicao(this);
+            });
+        }
+
+        // Configurar formulário para adicionar novo item
+        const novoItemForm = document.getElementById('novoItemForm');
+        if (novoItemForm) {
+            novoItemForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                adicionarNovoItem(this);
+            });
+        }
+
+        // Configurar validação do formulário de importação
+        const formImportar = document.querySelector('form[action="/importar_dicionario"]');
+        if (formImportar) {
+            formImportar.addEventListener('submit', validarFormularioImportacao);
+        }
+    }
+
+    function carregarDadosExistentes() {
+        // Determinar qual usuário filtrar - AGORA CARREGA TODOS DO MESMO PERFIL
+        let url = '/dicionario_json';
+        
+        {% if usuario.perfil == 'super_admin' and usuario_filtro %}
+        // Super admin filtrando por usuário específico
+        url = `/dicionario_usuario_json/{{ usuario_filtro }}`;
+        {% elif usuario.perfil == 'super_admin' %}
+        // Super admin sem filtro - carrega todos os usuários
+        url = '/dicionario_json';
+        {% else %}
+        // Usuário Email/URA - carrega todos do mesmo perfil
+        url = '/dicionario_json';
+        {% endif %}
+
+        return fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar dados: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(dados => {
+                // Limpar conjuntos
+                categorias.clear();
+                produtosSet.clear();
+                emailsFila.clear();
+                filas.clear();
+
+                // Preencher conjuntos com dados existentes de TODOS os usuários do perfil
+                dados.forEach(item => {
+                    if (item.categoria) categorias.add(item.categoria);
+                    if (item.produto) produtosSet.add(item.produto);
+                    if (item.email_fila) {
+                        emailsFila.add(item.email_fila);
+                        filas.add(item.email_fila);
+                    }
+                });
+
+                // Atualizar selects
+                atualizarSelect('categoriaSelect', categorias);
+                atualizarSelect('produtoSelect', produtosSet);
+                atualizarSelect('emailFilaSelect', emailsFila);
+                atualizarSelect('filaSelect', filas);
+
+                return dados;
+            })
+            .catch(error => {
+                console.error('Erro ao carregar dados:', error);
+                mostrarMensagem('Erro ao carregar dados do dicionário', 'error');
+            });
+    }
+
+    function atualizarSelect(selectId, conjunto) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        
+        // Manter a primeira opção (Selecione...)
+        const primeiraOpcao = select.options[0];
+        select.innerHTML = '';
+        select.appendChild(primeiraOpcao);
+
+        // Adicionar opções do conjunto
+        Array.from(conjunto).sort().forEach(item => {
+            const option = document.createElement('option');
+            option.value = item;
+            option.textContent = item;
+            select.appendChild(option);
+        });
+    }
+
+    function mostrarModalAdicionar() {
+        modoEdicao = false;
+        const modal = new bootstrap.Modal(document.getElementById('modalAdicionar'));
+        document.getElementById('produtoForm').reset();
+        document.getElementById('produtoId').value = '';
+        document.getElementById('modalAdicionar').querySelector('.modal-title').textContent = 'Adicionar Produto';
+
+        // PARA USUÁRIOS EMAIL/URA: CARREGAR DADOS DE TODOS OS USUÁRIOS DO MESMO PERFIL
+        let url = '/dicionario_json';
+        
+        {% if usuario.perfil == 'super_admin' and usuario_filtro %}
+        url = `/dicionario_usuario_json/{{ usuario_filtro }}`;
+        {% elif usuario.perfil == 'super_admin' %}
+        // Super admin sem filtro - carrega todos
+        url = '/dicionario_json';
+        {% else %}
+        // Usuário Email/URA - carrega todos do mesmo perfil
+        url = '/dicionario_json';
+        {% endif %}
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar dados: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(dados => {
+                // Limpar e preencher conjuntos com dados de TODOS os usuários do perfil
+                categorias.clear();
+                produtosSet.clear();
+                emailsFila.clear();
+                filas.clear();
+
+                dados.forEach(item => {
+                    if (item.categoria) categorias.add(item.categoria);
+                    if (item.produto) produtosSet.add(item.produto);
+                    if (item.email_fila) {
+                        emailsFila.add(item.email_fila);
+                        filas.add(item.email_fila);
+                    }
+                });
+
+                // Atualizar selects
+                atualizarSelect('categoriaSelect', categorias);
+                atualizarSelect('produtoSelect', produtosSet);
+                atualizarSelect('emailFilaSelect', emailsFila);
+                atualizarSelect('filaSelect', filas);
+
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Erro ao carregar dados:', error);
+                modal.show();
+                mostrarMensagem('Erro ao carregar dados para o modal', 'error');
+            });
+    }
+
+    function mostrarModalItem(tipo) {
+        const modal = new bootstrap.Modal(document.getElementById('modalNovoItem'));
+        const titulo = document.getElementById('modalNovoItemTitulo');
+        const label = document.getElementById('labelNovoItem');
+        document.getElementById('tipoItem').value = tipo;
+        document.getElementById('valorNovoItem').value = '';
+
+        switch (tipo) {
+            case 'categoria':
+                titulo.textContent = 'Adicionar Nova Categoria';
+                label.textContent = 'Categoria';
+                break;
+            case 'produto':
+                titulo.textContent = 'Adicionar Novo Produto';
+                label.textContent = 'Produto';
+                break;
+            case 'email_fila':
+                titulo.textContent = 'Adicionar Novo Email da Fila';
+                label.textContent = 'Email da Fila';
+                break;
+            case 'fila':
+                titulo.textContent = 'Adicionar Nova Fila';
+                label.textContent = 'Fila';
+                break;
+        }
+
+        modal.show();
+    }
+
+    function adicionarNovoItem(form) {
+        const tipo = document.getElementById('tipoItem').value;
+        const valor = document.getElementById('valorNovoItem').value.trim();
+
+        if (!valor) {
+            mostrarMensagem('Por favor, preencha o valor!', 'warning');
+            return;
+        }
+
+        // Adicionar ao conjunto apropriado
+        switch (tipo) {
+            case 'categoria':
+                categorias.add(valor);
+                atualizarSelect('categoriaSelect', categorias);
+                atualizarSelect('editarCategoria', categorias);
+                document.getElementById('categoriaSelect').value = valor;
+                break;
+            case 'produto':
+                produtosSet.add(valor);
+                atualizarSelect('produtoSelect', produtosSet);
+                atualizarSelect('editarProdutoSelect', produtosSet);
+                document.getElementById('produtoSelect').value = valor;
+                break;
+            case 'email_fila':
+                emailsFila.add(valor);
+                atualizarSelect('emailFilaSelect', emailsFila);
+                atualizarSelect('editarEmailFila', emailsFila);
+                document.getElementById('emailFilaSelect').value = valor;
+                break;
+            case 'fila':
+                filas.add(valor);
+                atualizarSelect('filaSelect', filas);
+                atualizarSelect('editarFila', filas);
+                document.getElementById('filaSelect').value = valor;
+                break;
+        }
+
+        // Fechar o modal
+        bootstrap.Modal.getInstance(document.getElementById('modalNovoItem')).hide();
+        mostrarMensagem('Item adicionado com sucesso!', 'success');
+    }
+
+    // Função para filtrar por usuário (Super Admin)
+    function filtrarPorUsuario() {
+        const usuarioId = document.getElementById('usuario_filtro').value;
+        const url = new URL(window.location.href);
+        
+        if (usuarioId) {
+            url.searchParams.set('usuario_id', usuarioId);
+        } else {
+            url.searchParams.delete('usuario_id');
+        }
+        
+        window.location.href = url.toString();
+    }
+
+    function editarProduto(produtoId) {
+        modoEdicao = true;
+        const modal = new bootstrap.Modal(document.getElementById('modalEditar'));
+
+        // CARREGAR DADOS DE TODOS OS USUÁRIOS DO MESMO PERFIL
+        let url = '/dicionario_json';
+        
+        {% if usuario.perfil == 'super_admin' and usuario_filtro %}
+        url = `/dicionario_usuario_json/{{ usuario_filtro }}`;
+        {% elif usuario.perfil == 'super_admin' %}
+        url = '/dicionario_json';
+        {% else %}
+        url = '/dicionario_json';
+        {% endif %}
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar produtos: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(todosProdutos => {
+                const produto = todosProdutos.find(p => p.id == produtoId);
+                
+                if (produto) {
+                    // Preencher os selects com dados de TODOS os usuários do perfil
+                    categorias.clear();
+                    produtosSet.clear();
+                    emailsFila.clear();
+                    filas.clear();
+
+                    todosProdutos.forEach(item => {
+                        if (item.categoria) categorias.add(item.categoria);
+                        if (item.produto) produtosSet.add(item.produto);
+                        if (item.email_fila) {
+                            emailsFila.add(item.email_fila);
+                            filas.add(item.email_fila);
+                        }
+                    });
+
+                    // Atualizar selects do modal de edição
+                    atualizarSelect('editarCategoria', categorias);
+                    atualizarSelect('editarProdutoSelect', produtosSet);
+                    atualizarSelect('editarEmailFila', emailsFila);
+                    atualizarSelect('editarFila', filas);
+
+                    // Agora preencher o formulário com os dados do produto
+                    document.getElementById('editarId').value = produto.id;
+                    
+                    // Pequeno delay para garantir que os selects foram atualizados
+                    setTimeout(() => {
+                        document.getElementById('editarCategoria').value = produto.categoria || '';
+                        document.getElementById('editarProdutoSelect').value = produto.produto || '';
+                        document.getElementById('editarVariacoes').value = produto.variacoes || '';
+                        document.getElementById('editarPalavrasChave').value = produto.palavras_chave || '';
+                        document.getElementById('editarPalavrasContexto').value = produto.palavras_contexto || '';
+                        
+                        // Preencher campo de fila baseado no perfil
+                        {% if usuario.perfil == 'email' %}
+                        document.getElementById('editarEmailFila').value = produto.email_fila || '';
+                        {% else %}
+                        document.getElementById('editarFila').value = produto.email_fila || '';
+                        {% endif %}
+                        
+                        // Configurar checkbox
+                        document.getElementById('editarTermoGenerico').checked = produto.termo_generico === 'sim';
+                        
+                        modal.show();
+                    }, 100);
+                } else {
+                    throw new Error('Produto não encontrado');
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar dados do produto:', error);
+                mostrarMensagem('Erro ao carregar dados do produto', 'error');
+            });
+    }
+
+    // FUNÇÃO PRINCIPAL PARA ENVIAR FORMULÁRIO DE PRODUTO (ADIÇÃO)
+    function enviarFormularioProduto(form) {
+        const formData = new FormData(form);
+        const produtoId = document.getElementById('produtoId').value;
+
+        // Adicionar o filtro de usuário se existir (para Super Admin)
+        const usuarioFiltro = obterUsuarioFiltro();
+        if (usuarioFiltro) {
+            formData.append('usuario_filtro', usuarioFiltro);
+        }
+
+        // Adicionar header para identificar como AJAX
+        const headers = {
+            'X-Requested-With': 'XMLHttpRequest'
+        };
+
+        if (modoEdicao && produtoId !== '') {
+            // Modo edição - enviar via PUT
+            const dados = {
+                categoria: formData.get('categoria'),
+                produto: formData.get('produto'),
+                variacoes: formData.get('variacoes'),
+                palavras_chave: formData.get('palavras_chave'),
+                palavras_contexto: formData.get('palavras_contexto'),
+                termo_generico: document.getElementById('termoGenerico').checked ? 'sim' : 'não'
+            };
+
+            // Adicionar campo de fila baseado no perfil
+            {% if usuario.perfil == 'email' %}
+            dados.email_fila = formData.get('email_fila');
+            {% else %}
+            dados.email_fila = formData.get('fila');
+            {% endif %}
+
+            // Adicionar o filtro de usuário se existir (para Super Admin)
+            if (usuarioFiltro) {
+                dados.usuario_filtro = usuarioFiltro;
+            }
+
+            fetch(`/editar_produto/${produtoId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...headers
+                },
+                body: JSON.stringify(dados)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    // Se a resposta não for JSON, lançar erro
+                    if (!response.headers.get('content-type')?.includes('application/json')) {
+                        throw new Error('Resposta do servidor não é JSON');
+                    }
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    mostrarMensagem('Produto editado com sucesso!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('modalAdicionar')).hide();
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    mostrarMensagem('Erro: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erro na requisição:', error);
+                mostrarMensagem('Erro de comunicação com o servidor', 'error');
+            });
+        } else {
+            // Modo adição - enviar via POST
+            fetch('/adicionar_produto', {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    // Se a resposta não for JSON, lançar erro
+                    if (!response.headers.get('content-type')?.includes('application/json')) {
+                        throw new Error('Resposta do servidor não é JSON');
+                    }
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    mostrarMensagem('Produto adicionado com sucesso!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('modalAdicionar')).hide();
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    mostrarMensagem('Erro: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erro na requisição:', error);
+                mostrarMensagem('Erro de comunicação com o servidor', 'error');
+            });
+        }
+    }
+
+    // FUNÇÃO PRINCIPAL PARA ENVIAR FORMULÁRIO DE EDIÇÃO
+    function enviarFormularioEdicao(form) {
+        const produtoId = document.getElementById('editarId').value;
+        
+        const dados = {
+            categoria: document.getElementById('editarCategoria').value,
+            produto: document.getElementById('editarProdutoSelect').value,
+            variacoes: document.getElementById('editarVariacoes').value,
+            palavras_chave: document.getElementById('editarPalavrasChave').value,
+            palavras_contexto: document.getElementById('editarPalavrasContexto').value,
+            termo_generico: document.getElementById('editarTermoGenerico').checked ? 'sim' : 'não'
+        };
+        
+        // Adicionar campo de fila baseado no perfil
+        {% if usuario.perfil == 'email' %}
+        dados.email_fila = document.getElementById('editarEmailFila').value;
+        {% else %}
+        dados.email_fila = document.getElementById('editarFila').value;
+        {% endif %}
+        
+        // Adicionar o filtro de usuário se existir (para Super Admin)
+        const usuarioFiltro = obterUsuarioFiltro();
+        if (usuarioFiltro) {
+            dados.usuario_filtro = usuarioFiltro;
+        }
+        
+        fetch(`/editar_produto/${produtoId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(dados)
+        })
+        .then(response => {
+            if (!response.ok) {
+                // Se a resposta não for JSON, lançar erro
+                if (!response.headers.get('content-type')?.includes('application/json')) {
+                    throw new Error('Resposta do servidor não é JSON');
+                }
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                mostrarMensagem('Produto editado com sucesso!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('modalEditar')).hide();
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                mostrarMensagem('Erro: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro na requisição:', error);
+            mostrarMensagem('Erro de comunicação com o servidor', 'error');
+        });
+    }
+
+    // Função para obter o ID do usuário filtrado atual
+    function obterUsuarioFiltro() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('usuario_id');
+    }
+    
+
+    // FUNÇÃO PARA EXCLUIR PRODUTO VIA AJAX
+    function excluirProduto(produtoId) {
+        if (!confirm('Tem certeza que deseja excluir este produto?')) {
+            return;
+        }
+
+        fetch(`/excluir_produto/${produtoId}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                if (!response.headers.get('content-type')?.includes('application/json')) {
+                    throw new Error('Resposta do servidor não é JSON');
+                }
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                mostrarMensagem('Produto excluído com sucesso!', 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                mostrarMensagem('Erro: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro na requisição:', error);
+            mostrarMensagem('Erro de comunicação com o servidor', 'error');
+        });
+    }
+
+    // ATUALIZAR OS BOTÕES DE EXCLUSÃO PARA USAR A FUNÇÃO AJAX
+    document.addEventListener('DOMContentLoaded', function() {
+        // Substituir todos os links de exclusão por chamadas à função AJAX
+        document.querySelectorAll('a[href*="/excluir_produto/"]').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const produtoId = this.getAttribute('href').split('/').pop();
+                excluirProduto(produtoId);
+            });
+        });
+    });
+
+    function validarFormularioImportacao(e) {
+        const arquivo = document.querySelector('input[name="arquivo"]').files[0];
+        
+        if (!arquivo) {
+            e.preventDefault();
+            mostrarMensagem('Selecione um arquivo para importar!', 'warning');
+            return false;
+        }
+        
+        // Verificar extensão
+        const extensoesPermitidas = ['.xlsx', '.xls'];
+        const nomeArquivo = arquivo.name.toLowerCase();
+        const extensaoValida = extensoesPermitidas.some(ext => nomeArquivo.endsWith(ext));
+        
+        if (!extensaoValida) {
+            e.preventDefault();
+            mostrarMensagem('Formato de arquivo inválido! Use .xlsx ou .xls', 'warning');
+            return false;
+        }
+        
+        // Verificar tamanho (máximo 10MB)
+        if (arquivo.size > 10 * 1024 * 1024) {
+            e.preventDefault();
+            mostrarMensagem('Arquivo muito grande! Tamanho máximo: 10MB', 'warning');
+            return false;
+        }
+        
+        // Verificar se usuário destino foi selecionado (para super admin)
+        {% if usuario.perfil == 'super_admin' %}
+        const usuarioDestino = document.querySelector('select[name="usuario_destino_id"]');
+        if (!usuarioDestino.value) {
+            e.preventDefault();
+            mostrarMensagem('Selecione um usuário destino para a importação!', 'warning');
+            return false;
+        }
+        {% endif %}
+        
+        return true;
+    }
+
+    // Função para mostrar mensagens
+    function mostrarMensagem(mensagem, tipo = 'info') {
+        // Criar elemento de mensagem
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${tipo} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${mensagem}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Adicionar no topo da página
+        const container = document.querySelector('.container') || document.body;
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        // Auto-remover após 5 segundos
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
+    // Limpar formulário quando modal fechar
+    document.getElementById('modalImportar').addEventListener('hidden.bs.modal', function() {
+        this.querySelector('form').reset();
+    });
+
+    document.getElementById('modalExportar').addEventListener('hidden.bs.modal', function() {
+        this.querySelector('form').reset();
+    });
+
+    // Validação do formulário de adição para perfil email
+    document.getElementById('produtoForm').addEventListener('submit', function(e) {
+        {% if usuario.perfil == 'email' %}
+        const emailFila = document.querySelector('select[name="email_fila"]').value;
+        if (emailFila && !emailFila.includes('@')) {
+            e.preventDefault();
+            mostrarMensagem('Por favor, selecione um email válido para a fila!', 'warning');
+            return false;
+        }
+        {% endif %}
+        return true;
+    });
+</script>
+
+<style>
+.form-label.required::after {
+    content: " *";
+    color: red;
+}
+
+.btn-primary {
+    background-color: #00a335;
+    border-color: #00a335;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #00863F;
+    border-color: #00863F;
+}
+
+.btn-outline-primary {
+    color: #00a335;
+    border-color: #00a335;
+}
+
+.btn-outline-primary:hover {
+    background-color: #00a335;
+    border-color: #00a335;
+    color: white;
+}
+
+.btn-outline-danger {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-outline-danger:hover {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+.badge.bg-info {
+    background-color: #87c984 !important;
+    color: #3e5055 !important;
+}
+
+.card {
+    border: 1px solid #e0e0e0;
+    background-color: #ffffff;
+}
+
+.card-header {
+    background-color: #00a335;
+    color: white;
+    border-bottom: 1px solid #00863F;
+}
+
+.modal-header {
+    background-color: #00a335;
+    color: white;
+}
+
+.modal-footer .btn-primary {
+    background-color: #00a335;
+    border-color: #00a335;
+}
+
+.modal-footer .btn-primary:hover {
+    background-color: #00863F;
+    border-color: #00863F;
+}
+
+.table th {
+    background-color: #00a335;
+    color: white;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(135, 201, 132, 0.1);
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(135, 201, 132, 0.2);
+}
+
+h2 {
+    color: #3e5055;
+}
+
+body {
+    color: #8b979f;
+    background-color: #ffffff;
+}
+
+/* Estilo para indicador de perfil */
+.perfil-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 0.8rem;
+}
+
+/* Estilos para os novos botões */
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+}
+
+.alert ul {
+    padding-left: 1rem;
+}
+
+.alert ul li {
+    margin-bottom: 0.25rem;
+}
+
+.form-text {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+/* Estilo para o dropdown de exportação */
+.btn-group .dropdown-menu {
+    border: 1px solid #00a335;
+}
+
+.btn-group .dropdown-item {
+    color: #00a335;
+}
+
+.btn-group .dropdown-item:hover {
+    background-color: #00a335;
+    color: white;
+}
+
+/* Manter os estilos existentes */
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+}
+
+/* Destaque visual baseado no perfil */
+{% if usuario.perfil == 'ura' %}
+.card-header {
+    background: linear-gradient(135deg, #00a335 0%, #00863F 100%);
+}
+{% elif usuario.perfil == 'email' %}
+.card-header {
+    background: linear-gradient(135deg, #00a335 0%, #0062cc 100%);
+}
+{% endif %}
+</style>
+{% endblock %}

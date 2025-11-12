@@ -1,0 +1,592 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-4">Histórico de Análises</h2>
+
+<!-- Filtro de Usuário para Super Admin -->
+{% if usuario.perfil == 'super_admin' %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Filtros</h5>
+    </div>
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Filtrar por Usuário:</label>
+                <select name="usuario_id" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todos os usuários</option>
+                    {% for user in usuarios %}
+                        <option value="{{ user.id }}" 
+                            {% if usuario_filtro == user.id %}selected{% endif %}>
+                            {{ user.nome }} ({{ user.username }}) - {{ user.perfil }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <small class="text-muted">
+                    {% if is_super_admin %}
+                        Visualizando todos os usuários
+                    {% elif is_perfil_email %}
+                        Visualizando todos os usuários Email
+                    {% elif is_perfil_ura %}
+                        Visualizando todos os usuários URA
+                    {% else %}
+                        Visualizando apenas seus dados
+                    {% endif %}
+                </small>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>Últimas Análises</h5>
+        <div class="d-flex align-items-center">
+            <div id="status-indicator" class="me-2" style="display: none;">
+                <span class="spinner-border spinner-border-sm text-light me-1" role="status"></span>
+                <small>Atualizando...</small>
+            </div>
+            <span id="contador-analises" class="badge bg-info">{{ historico|length }} análises registradas</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        {% if usuario.perfil == 'super_admin' and not usuario_filtro %}
+                        <th>Usuário</th>
+                        <th>Empresa</th>
+                        {% endif %}
+                        <th>Data/Hora</th>
+                        <th>Texto Analisado</th>
+                        <th>Produto</th>
+                        <th>Categoria</th>
+                        <th>Fila</th>
+                        <th>Tipo</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabela-historico">
+                    {% for item in historico %}
+                    <tr id="item-{{ item.id }}" data-usuario-id="{{ item.usuario_id if item.usuario_id else usuario.id }}">
+                        {% if usuario.perfil == 'super_admin' and not usuario_filtro %}
+                        <td>
+                            {% if item.usuario_nome %}
+                                {{ item.usuario_nome }}
+                            {% else %}
+                                <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.usuario_empresa %}
+                                {{ item.usuario_empresa }}
+                            {% else %}
+                                <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        <td>{{ item.timestamp|datetimeformat if item.timestamp else 'N/A' }}</td>
+                        <td title="{{ item.texto }}">
+                            {{ item.texto[:70] }}{% if item.texto|length > 70 %}...{% endif %}
+                        </td>
+                        <td>
+                            {% if item.produto %}
+                                {{ item.produto }}
+                            {% else %}
+                                <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.categoria %}
+                                {{ item.categoria }}
+                            {% else %}
+                                <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.email_fila %}
+                                <span title="{{ item.email_fila }}">
+                                    {{ item.email_fila|truncate(20) }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.tipo == 'correcao_manual' %}
+                                <span class="badge bg-warning">corrigido</span>
+                            {% elif item.tipo == 'analise_automatica' %}
+                                <span class="badge bg-success">automático</span>
+                            {% elif item.tipo == 'analise_contexto' %}
+                                <span class="badge bg-info">contexto</span>
+                            {% elif item.tipo == 'analise_contexto_multiplos_produtos' %}
+                                <span class="badge bg-primary">múltiplos produtos</span>
+                            {% elif item.tipo == 'N/A' or not item.tipo %}
+                                <span class="badge bg-secondary">N/A</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ item.tipo }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    onclick="corrigirAnalise('{{ item.id }}')"
+                                    title="Corrigir análise">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr id="sem-dados">
+                        <td colspan="{% if usuario.perfil == 'super_admin' and not usuario_filtro %}9{% else %}7{% endif %}" class="text-center">
+                            Nenhum histórico disponível.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer">
+        <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">
+                {% if usuario.perfil == 'super_admin' %}
+                    {% if usuario_filtro %}
+                        Visualizando dados do usuário selecionado
+                    {% else %}
+                        Visualizando dados de todos os usuários
+                    {% endif %}
+                {% else %}
+                    Visualizando seus dados
+                {% endif %}
+            </small>
+            <a href="{{ url_for('exportar_historico') }}{% if usuario_filtro %}?usuario_id={{ usuario_filtro }}{% endif %}" 
+               class="btn btn-sm btn-success">
+                <i class="fas fa-download me-1"></i> Exportar Histórico
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para correção -->
+<div class="modal fade" id="modalCorrecao" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCorrecaoTitulo">Corrigir Análise</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="correcaoForm" method="POST" action="{{ url_for('corrigir_analise') }}">
+                <input type="hidden" id="correcaoId" name="item_id">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Texto analisado:</label>
+                        <p id="textoAnalisado" class="form-control-plaintext border rounded p-2 bg-light"></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Categoria Correta</label>
+                        <select class="form-select" id="categoriaCorreta" name="categoria_correta">
+                            <option value="">Selecione uma categoria...</option>
+                            <!-- Opções serão preenchidas via JavaScript -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Produto Correto</label>
+                        <select class="form-select" id="produtoCorreto" name="produto_correto">
+                            <option value="">Selecione um produto...</option>
+                            <!-- Opções serão preenchidas via JavaScript -->
+                        </select>
+                    </div>
+                    <div class="alert alert-info">
+                        <small>⚠️ Selecione pelo menos um campo (produto ou categoria) para salvar a correção.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Correção</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Dados completos para busca por ID
+let historicoCompleto = {{ historico|tojson }};
+// Variáveis globais para armazenar dados do dicionário
+let produtosDicionario = [];
+let categoriasDicionario = [];
+
+// Verificar se temos dados de usuário nos itens
+console.log('Itens no histórico:', historicoCompleto.length);
+if (historicoCompleto.length > 0) {
+    console.log('Primeiro item:', historicoCompleto[0]);
+}
+
+// Função para filtrar por usuário (Super Admin)
+function filtrarPorUsuario() {
+    const usuarioId = document.getElementById('usuario_filtro').value;
+    const url = new URL(window.location.href);
+    
+    if (usuarioId) {
+        url.searchParams.set('usuario_id', usuarioId);
+    } else {
+        url.searchParams.delete('usuario_id');
+    }
+    
+    window.location.href = url.toString();
+}
+
+// Função para carregar dados do dicionário do usuário específico
+async function carregarDicionarioUsuario(usuarioId) {
+    try {
+        console.log(`Carregando dicionário para usuário: ${usuarioId}`);
+        
+        // EM VEZ DE CARREGAR APENAS DO USUÁRIO ESPECÍFICO,
+        // CARREGAR TODOS OS USUÁRIOS DO MESMO PERFIL (COMO NO DICIONÁRIO)
+        const response = await fetch('/dicionario_json');
+        const dados = await response.json();
+        
+        if (dados.error) {
+            console.error('Erro ao carregar dicionário:', dados.error);
+            return { produtos: [], categorias: [] };
+        }
+        
+        produtosDicionario = dados;
+        
+        // Extrair categorias únicas
+        categoriasDicionario = [...new Set(produtosDicionario.map(item => item.categoria))].filter(Boolean);
+        
+        console.log(`Dicionário carregado para todos os usuários do perfil:`, produtosDicionario.length, 'produtos');
+        console.log('Categorias disponíveis:', categoriasDicionario);
+        
+        return { produtos: produtosDicionario, categorias: categoriasDicionario };
+    } catch (error) {
+        console.error('Erro ao carregar dicionário:', error);
+        return { produtos: [], categorias: [] };
+    }
+}
+
+// Função para preencher categorias no dropdown
+function preencherCategorias(categorias) {
+    const categoriaSelect = document.getElementById('categoriaCorreta');
+    
+    // Limpar opções existentes (exceto a primeira)
+    while (categoriaSelect.options.length > 1) {
+        categoriaSelect.remove(1);
+    }
+    
+    // Adicionar categorias ao dropdown
+    categorias.forEach(categoria => {
+        const option = document.createElement('option');
+        option.value = categoria;
+        option.textContent = categoria;
+        categoriaSelect.appendChild(option);
+    });
+    
+    console.log(`Preenchidas ${categorias.length} categorias no dropdown`);
+}
+
+// Função para preencher produtos baseado na categoria selecionada
+function preencherProdutosPorCategoria(categoria) {
+    const produtoSelect = document.getElementById('produtoCorreto');
+    
+    // Limpar opções atuais (exceto a primeira)
+    while (produtoSelect.options.length > 1) {
+        produtoSelect.remove(1);
+    }
+    
+    // Adicionar produtos da categoria selecionada
+    if (categoria) {
+        const produtosFiltrados = produtosDicionario.filter(item => item.categoria === categoria);
+        
+        produtosFiltrados.forEach(produto => {
+            const option = document.createElement('option');
+            option.value = produto.produto;
+            option.textContent = produto.produto;
+            produtoSelect.appendChild(option);
+        });
+        
+        // Habilitar o select de produtos
+        produtoSelect.disabled = false;
+        console.log(`Preenchidos ${produtosFiltrados.length} produtos para categoria: ${categoria}`);
+    } else {
+        // Desabilitar o select de produtos se nenhuma categoria for selecionada
+        produtoSelect.disabled = true;
+        console.log('Nenhuma categoria selecionada, produtos desabilitados');
+    }
+}
+
+async function corrigirAnalise(itemId) {
+    console.log('Buscando item com ID:', itemId);
+    console.log('Todos os itens disponíveis:', historicoCompleto);
+    
+    // Buscar o item pelo ID
+    const item = historicoCompleto.find(i => i.id === itemId);
+    const row = document.getElementById(`item-${itemId}`);
+    
+    if (!item) {
+        console.error('Item não encontrado no array historicoCompleto');
+        console.error('IDs disponíveis:', historicoCompleto.map(i => i.id));
+        alert('Item não encontrado no histórico!');
+        return;
+    }
+    
+    if (!row) {
+        console.error('Linha da tabela não encontrada');
+        alert('Erro ao localizar item na tabela!');
+        return;
+    }
+    
+    console.log('Item encontrado:', item);
+    
+    // Obter o usuario_id da análise do data attribute ou do item
+    const usuarioIdAnalise = row.getAttribute('data-usuario-id') || item.usuario_id || {{ usuario.id|tojson }};
+    
+    console.log('Usuario ID da análise:', usuarioIdAnalise);
+    console.log('Carregando dicionário para todos os usuários do mesmo perfil');
+    
+    // Mostrar indicador de carregamento
+    document.getElementById('textoAnalisado').textContent = 'Carregando dicionário...';
+    
+    // CARREGAR DICIONÁRIO DE TODOS OS USUÁRIOS DO MESMO PERFIL
+    const { produtos, categorias } = await carregarDicionarioUsuario(usuarioIdAnalise);
+    
+    document.getElementById('correcaoId').value = itemId;
+    document.getElementById('textoAnalisado').textContent = item.texto || 'N/A';
+    
+    // Preencher categorias
+    preencherCategorias(categorias);
+    
+    // Limpar seleções anteriores
+    document.getElementById('produtoCorreto').value = '';
+    document.getElementById('categoriaCorreta').value = '';
+    document.getElementById('produtoCorreto').disabled = true;
+    
+    // Atualizar título do modal para mostrar qual usuário está sendo corrigido (apenas para super admin)
+    const modalTitle = document.getElementById('modalCorrecaoTitulo');
+    if ({{ (usuario.perfil == 'super_admin')|tojson }}) {
+        modalTitle.textContent = `Corrigir Análise (Usuário ID: ${usuarioIdAnalise})`;
+    } else {
+        modalTitle.textContent = 'Corrigir Análise';
+    }
+    
+    // Mostrar informações sobre o dicionário carregado
+    if (categorias.length === 0) {
+        document.getElementById('textoAnalisado').textContent += '\n\n⚠️ AVISO: Nenhuma categoria encontrada no dicionário.';
+    } else {
+        document.getElementById('textoAnalisado').textContent += `\n\n✅ Dicionário carregado: ${categorias.length} categorias, ${produtos.length} produtos disponíveis.`;
+    }
+    
+    // Mostrar o modal
+    const modal = new bootstrap.Modal(document.getElementById('modalCorrecao'));
+    modal.show();
+}
+
+// Event listener para mudança de categoria
+document.getElementById('categoriaCorreta').addEventListener('change', function() {
+    preencherProdutosPorCategoria(this.value);
+});
+
+document.getElementById('correcaoForm').addEventListener('submit', function(e) {
+    const produto = document.getElementById('produtoCorreto').value.trim();
+    const categoria = document.getElementById('categoriaCorreta').value.trim();
+    
+    if (!produto && !categoria) {
+        e.preventDefault();
+        alert('Por favor, selecione pelo menos um produto ou uma categoria.');
+        return;
+    }
+    
+    // Mostrar loading no botão
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Salvando...';
+    submitBtn.disabled = true;
+});
+
+// Adicionar event listener para quando o modal for aberto
+document.getElementById('modalCorrecao').addEventListener('shown.bs.modal', function() {
+    // Garantir que os dropdowns estão atualizados
+    const categoriaSelect = document.getElementById('categoriaCorreta');
+    if (categoriaSelect.value) {
+        preencherProdutosPorCategoria(categoriaSelect.value);
+    }
+});
+
+// Adicionar event listener para quando o modal for fechado
+document.getElementById('modalCorrecao').addEventListener('hidden.bs.modal', function() {
+    // Resetar o botão de submit
+    const submitBtn = document.querySelector('#correcaoForm button[type="submit"]');
+    submitBtn.innerHTML = 'Salvar Correção';
+    submitBtn.disabled = false;
+});
+
+// Função para carregar dicionário geral (para uso futuro se necessário)
+async function carregarDicionarioGeral() {
+    try {
+        const response = await fetch('/dicionario_json');
+        const dados = await response.json();
+        produtosDicionario = dados;
+        
+        // Extrair categorias únicas
+        categoriasDicionario = [...new Set(produtosDicionario.map(item => item.categoria))].filter(Boolean);
+        
+        console.log('Dicionário geral carregado:', produtosDicionario.length, 'produtos');
+        console.log('Categorias disponíveis:', categoriasDicionario);
+    } catch (error) {
+        console.error('Erro ao carregar dicionário geral:', error);
+    }
+}
+
+// Carregar dados iniciais quando a página for carregada
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Página de histórico carregada');
+    console.log('Total de itens no histórico:', historicoCompleto.length);
+    
+    // Para usuários normais, carregar o dicionário uma vez (DE TODOS DO MESMO PERFIL)
+    if ({{ (usuario.perfil != 'super_admin')|tojson }}) {
+        carregarDicionarioUsuario({{ usuario.id }});
+    }
+});
+</script>
+
+<style>
+.badge.bg-info {
+    background-color: #87c984 !important;
+    color: #3e5055 !important;
+}
+
+.badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #3e5055 !important;
+}
+
+.badge.bg-success {
+    background-color: #00a335 !important;
+    color: white !important;
+}
+
+.badge.bg-secondary {
+    background-color: #8b979f !important;
+    color: white !important;
+}
+
+.card {
+    border: 1px solid #e0e0e0;
+    background-color: #ffffff;
+}
+
+.card-header {
+    background-color: #00a335;
+    color: white;
+    border-bottom: 1px solid #00863F;
+}
+
+.modal-header {
+    background-color: #00a335;
+    color: white;
+}
+
+.modal-footer .btn-primary {
+    background-color: #00a335;
+    border-color: #00a335;
+    color: white;
+}
+
+.modal-footer .btn-primary:hover {
+    background-color: #00863F;
+    border-color: #00863F;
+}
+
+.modal-footer .btn-secondary {
+    background-color: #8b979f;
+    border-color: #8b979f;
+    color: white;
+}
+
+.modal-footer .btn-secondary:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.table th {
+    background-color: #00a335;
+    color: white;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(135, 201, 132, 0.1);
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(135, 201, 132, 0.2);
+}
+
+h2, h5 {
+    color: #3e5055;
+}
+
+body {
+    color: #8b979f;
+    background-color: #ffffff;
+}
+
+.btn-outline-primary {
+    color: #00a335;
+    border-color: #00a335;
+}
+
+.btn-outline-primary:hover {
+    background-color: #00a335;
+    border-color: #00a335;
+    color: white;
+}
+
+.alert-info {
+    background-color: rgba(135, 201, 132, 0.2);
+    border-color: #87c984;
+    color: #3e5055;
+}
+
+.form-select:focus {
+    border-color: #00a335;
+    box-shadow: 0 0 0 0.2rem rgba(0, 163, 53, 0.25);
+}
+
+/* Indicador de status */
+#status-indicator {
+    display: none;
+    align-items: center;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+.btn-success {
+    background-color: #00a335;
+    border-color: #00a335;
+}
+
+.btn-success:hover {
+    background-color: #00863F;
+    border-color: #00863F;
+}
+
+/* Estilo para selects desabilitados */
+.form-select:disabled {
+    background-color: #f8f9fa;
+    opacity: 0.6;
+}
+
+/* Estilo para texto de carregamento */
+#textoAnalisado {
+    white-space: pre-wrap;
+    font-size: 0.9em;
+    max-height: 200px;
+    overflow-y: auto;
+}
+</style>
+{% endblock %}

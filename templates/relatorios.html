@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-4">Relatórios e Estatísticas</h2>
+
+<!-- Filtro de Usuário para Super Admin -->
+{% if usuario.perfil == 'super_admin' %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Filtros - Super Admin</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <label for="usuario_filtro" class="form-label">Filtrar por Usuário:</label>
+                <select class="form-select" id="usuario_filtro" onchange="filtrarPorUsuario()">
+                    <option value="">Todos os Usuários</option>
+                    {% for u in usuarios %}
+                        <option value="{{ u.id }}" {% if usuario_filtro == u.id %}selected{% endif %}>
+                            {{ u.nome }} ({{ u.empresa }}) - {{ u.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Status do Filtro:</label>
+                <div>
+                    {% if usuario_filtro %}
+                        {% set usuario_selecionado = usuarios|selectattr("id", "equalto", usuario_filtro)|first %}
+                        <span class="badge bg-info">Visualizando: {{ usuario_selecionado.nome if usuario_selecionado else 'Usuário' }}</span>
+                    {% else %}
+                        <span class="badge bg-success">Visualizando: Todos os Usuários</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Métricas -->
+<div class="row mb-4">
+    <div class="col-md-2">
+        <div class="card metric-card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-chart-bar text-primary"></i></h5>
+                <h3 class="card-text">{{ metricas.total_analises }}</h3>
+                <p class="card-text">Total de Análises</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card metric-card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-check-circle text-success"></i></h5>
+                <h3 class="card-text">{{ metricas.acuracia_geral }}%</h3>
+                <p class="card-text">Acurácia Geral</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card metric-card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-box text-info"></i></h5>
+                <h3 class="card-text">{{ metricas.produtos_identificados }}</h3>
+                <p class="card-text">Produtos Identificados</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card metric-card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-tags text-secondary"></i></h5>
+                <h3 class="card-text">{{ metricas.contextos_identificados }}</h3>
+                <p class="card-text">Contextos Identificados</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card metric-card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-question-circle text-warning"></i></h5>
+                <h3 class="card-text">{{ metricas.nao_identificados }}</h3>
+                <p class="card-text">Não Identificados</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card metric-card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-cogs text-danger"></i></h5>
+                <h3 class="card-text">{{ metricas.correcoes_manuais }}</h3>
+                <p class="card-text">Correções Manuais</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos -->
+<div class="row mb-4">
+    <!-- Gráfico de Distribuição de Identificações -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header" style="background-color: #00a335; color: white">
+                <h5>Distribuição das Identificações</h5>
+            </div>
+            <div class="card-body text-center">
+                {% if grafico_identificacao %}
+                <img src="data:image/png;base64,{{ grafico_identificacao }}" class="img-fluid" 
+                    alt="Distribuição das Identificações">
+                {% else %}
+                <p class="text-muted">Nenhum dado disponível para gerar gráfico.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráfico de Top Filas -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header" style="background-color: #00a335; color: white">
+                <h5>
+                    {% if usuario.perfil == 'email' %}
+                    Top 10 Filas de Email
+                    {% else %}
+                    Top 10 Filas
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body text-center">
+                {% if grafico_filas %}
+                <img src="data:image/png;base64,{{ grafico_filas }}" class="img-fluid" 
+                    alt="{% if usuario.perfil == 'email' %}Top 10 Filas de Email{% else %}Top 10 Filas{% endif %}">
+                {% else %}
+                <p class="text-muted">
+                    {% if usuario.perfil == 'email' %}
+                    Nenhuma fila de email identificada ainda.
+                    {% else %}
+                    Nenhuma fila identificada ainda.
+                    {% endif %}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráfico de análises por dia -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Análises nos Últimos 7 Dias</h5>
+            </div>
+            <div class="card-body">
+                <img src="data:image/png;base64,{{ grafico_analises }}" class="img-fluid" alt="Análises por Dia">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resumo -->
+<div class="card">
+    <div class="card-header">
+        <h5>Resumo do Desempenho</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Taxa de Identificação</h6>
+                <div class="progress mb-3">
+                    <div class="progress-bar bg-success" role="progressbar"
+                        style="width: {{ (metricas.produtos_identificados / metricas.total_analises * 100) if metricas.total_analises > 0 else 0 }}%">
+                        {{ "%.1f"|format(metricas.produtos_identificados / metricas.total_analises * 100) if metricas.total_analises > 0
+                        else 0 }}%
+                    </div>
+                </div>
+                <small>Produtos identificados corretamente</small>
+            </div>
+            <div class="col-md-6">
+                <h6>Taxa de Não Identificação</h6>
+                <div class="progress mb-3">
+                    <div class="progress-bar bg-warning" role="progressbar"
+                        style="width: {{ (metricas.nao_identificados / metricas.total_analises * 100) if metricas.total_analises > 0 else 0 }}%">
+                        {{ "%.1f"|format(metricas.nao_identificados / metricas.total_analises * 100) if metricas.total_analises > 0 else 0
+                        }}%
+                    </div>
+                </div>
+                <small>Emails não identificados</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+// Função para filtrar por usuário (Super Admin)
+function filtrarPorUsuario() {
+    const usuarioId = document.getElementById('usuario_filtro').value;
+    const url = new URL(window.location.href);
+    
+    if (usuarioId) {
+        url.searchParams.set('usuario_id', usuarioId);
+    } else {
+        url.searchParams.delete('usuario_id');
+    }
+    
+    window.location.href = url.toString();
+}
+</script>
+
+<style>
+.metric-card {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s;
+}
+
+.metric-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 163, 53, 0.2);
+}
+
+.text-primary {
+    color: #00a335 !important;
+}
+
+.text-success {
+    color: #00a335 !important;
+}
+
+.text-info {
+    color: #87c984 !important;
+}
+
+.text-secondary {
+    color: #8b979f !important;
+}
+
+.text-warning {
+    color: #ffc107 !important;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.card {
+    border: 1px solid #e0e0e0;
+    background-color: #ffffff;
+}
+
+.card-header {
+    background-color: #00a335;
+    color: white;
+    border-bottom: 1px solid #00863F;
+}
+
+h2, h5 {
+    color: #3e5055;
+}
+
+body {
+    color: #8b979f;
+    background-color: #ffffff;
+}
+
+.log-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.badge.bg-info {
+    background-color: #87c984 !important;
+    color: #3e5055 !important;
+}
+
+.badge.bg-success {
+    background-color: #00a335 !important;
+    color: white !important;
+}
+</style>
+{% endblock %}

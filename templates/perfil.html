@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-4">Meu Perfil</h2>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-user me-2"></i>Informações do Usuário</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Nome:</strong>
+                        <p class="form-control-plaintext">{{ usuario.nome }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Username:</strong>
+                        <p class="form-control-plaintext">{{ usuario.username }}</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Empresa:</strong>
+                        <p class="form-control-plaintext">{{ usuario.empresa or 'Não informada' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Perfil:</strong>
+                        <p class="form-control-plaintext">
+                            {% if usuario.perfil == 'ura' %}
+                                <span class="badge bg-info">URA</span>
+                            {% elif usuario.perfil == 'email' %}
+                                <span class="badge bg-success">Email</span>
+                            {% elif usuario.perfil == 'super_admin' %}
+                                <span class="badge bg-danger">Super Admin</span>
+                            {% elif usuario.perfil == 'admin' %}
+                                <span class="badge bg-warning">Admin</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ usuario.perfil }}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                {% if usuario.perfil in ['ura', 'email'] %}
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Funcionalidades do Perfil</h6>
+                    <ul class="mb-0">
+                        {% if usuario.perfil == 'ura' %}
+                            <li>Sistema otimizado para URA (Unidade de Resposta Audível)</li>
+                            <li>Cadastro de produtos com campo "Fila"</li>
+                            <li>Relatórios com métricas de filas (não email)</li>
+                            <li>Dashboard com estatísticas de filas</li>
+                        {% elif usuario.perfil == 'email' %}
+                            <li>Sistema completo para gestão de emails</li>
+                            <li>Cadastro de produtos com campo "Email da Fila"</li>
+                            <li>Validação de formato de email</li>
+                            <li>Relatórios com métricas de emails</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Estatísticas</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-box fa-3x text-primary mb-2"></i>
+                        <h4>{{ total_produtos }}</h4>
+                        <p class="text-muted">Produtos no Dicionário</p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <i class="fas fa-history fa-3x text-success mb-2"></i>
+                        <h4>{{ total_analises }}</h4>
+                        <p class="text-muted">Análises Realizadas</p>
+                    </div>
+                    
+                    {% if usuario.perfil == 'email' %}
+                    <div class="mb-3">
+                        <i class="fas fa-envelope fa-3x text-info mb-2"></i>
+                        <h4>{{ total_filas }}</h4>
+                        <p class="text-muted">Filas de Email</p>
+                    </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <i class="fas fa-list fa-3x text-info mb-2"></i>
+                        <h4>{{ total_filas }}</h4>
+                        <p class="text-muted">Filas Cadastradas</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Seção de Ações Rápidas -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-rocket me-2"></i>Ações Rápidas</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <a href="{{ url_for('dicionario') }}" class="btn btn-outline-primary btn-lg w-100 mb-2">
+                            <i class="fas fa-book fa-2x mb-2"></i><br>
+                            Dicionário
+                        </a>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-success btn-lg w-100 mb-2">
+                            <i class="fas fa-search fa-2x mb-2"></i><br>
+                            Analisar
+                        </a>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <a href="{{ url_for('historico') }}" class="btn btn-outline-info btn-lg w-100 mb-2">
+                            <i class="fas fa-history fa-2x mb-2"></i><br>
+                            Histórico
+                        </a>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <a href="{{ url_for('relatorios') }}" class="btn btn-outline-warning btn-lg w-100 mb-2">
+                            <i class="fas fa-chart-line fa-2x mb-2"></i><br>
+                            Relatórios
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.btn-lg {
+    padding: 1.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+.form-control-plaintext {
+    background-color: #f8f9fa;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    border: 1px solid #e9ecef;
+}
+</style>
+{% endblock %}

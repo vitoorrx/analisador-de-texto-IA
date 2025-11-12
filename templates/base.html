@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Analisador - SAAS{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            min-height: 100vh;
+            background-color: #ffffff;
+            border-right: 1px solid #dee2e6;
+        }
+
+        .metric-card {
+            transition: transform 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .log-container {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        /* Novos estilos baseados no brandbook */
+        body {
+            background-color: #ffffff;
+            color: #8b979f;
+        }
+
+        h4 {
+            color: #3e5055;
+        }
+
+        .nav-link {
+            color: #8b979f;
+        }
+
+        .nav-link:hover {
+            color: #00a335;
+            background-color: rgba(135, 201, 132, 0.1);
+        }
+
+        .nav-link.active {
+            background-color: #00a335 !important;
+            color: white !important;
+        }
+
+        .nav-link.active:hover {
+            background-color: #00863F !important;
+        }
+        
+        .user-info {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    {% if session.usuario_logado %}
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 sidebar p-0">
+                <div class="p-3">
+                    <div class="text-center mb-4">
+                        <img src="{{ url_for('static', filename='img/logo.png') }}"
+                            style="height: 100px;" alt="Logo">
+                    </div>
+                    
+                    <!-- Informações do usuário -->
+                    <div class="user-info">
+                        <h6 class="text-primary mb-1">{{ session.usuario_logado.nome }}</h6>
+                        <small class="text-muted">{{ session.usuario_logado.empresa }}</small>
+                        <br>
+                        <small class="text-muted">@{{ session.usuario_logado.username }}</small>
+                    </div>
+                    
+                    <ul class="nav nav-pills flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}"
+                                href="{{ url_for('index') }}">
+                                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'dicionario' %}active{% endif %}"
+                                href="{{ url_for('dicionario') }}">
+                                <i class="fas fa-book me-2"></i>Dicionário
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'historico' %}active{% endif %}"
+                                href="{{ url_for('historico') }}">
+                                <i class="fas fa-history me-2"></i>Histórico
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'relatorios' %}active{% endif %}"
+                                href="{{ url_for('relatorios') }}">
+                                <i class="fas fa-chart-line me-2"></i>Relatórios
+                            </a>
+                        </li>
+                        {% if session.usuario_logado.perfil == 'super_admin' %}
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'admin_usuarios' %}active{% endif %}"
+                                    href="{{ url_for('admin_usuarios') }}">
+                                    <i class="fas fa-users-cog me-2"></i>Admin Usuários
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                
+                <!-- Logout -->
+                <div class="mt-auto p-3 border-top">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <small class="text-muted">
+                                Logado como: <strong>{{ session.usuario_logado.nome }}</strong>
+                            </small>
+                        </div>
+                        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-danger" title="Sair">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main content -->
+            <div class="col-md-10">
+                <div class="p-4">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+        {% block login_content %}{% endblock %}
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Funções JavaScript para interatividade
+        function confirmarExclusao() {
+            return confirm('Tem certeza que deseja excluir este item?');
+        }
+    </script>
+</body>
+</html>
